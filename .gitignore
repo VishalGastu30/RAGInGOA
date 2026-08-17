@@ -39,3 +39,7 @@ frontend/node_modules/
 frontend/.env
 frontend/.env.local
 .DS_Store
+
+# Task & Spec Documents
+PLAN.md
+task 2_ hhg.md
