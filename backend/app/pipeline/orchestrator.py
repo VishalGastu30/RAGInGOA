@@ -26,6 +26,7 @@ def run_pipeline(
     audio_base64: Optional[str] = None,
     text: Optional[str] = None,
     language_hint: Optional[str] = None,
+    strategy: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Full pipeline: STT → query processing → cache → retrieval → rerank →
@@ -79,13 +80,35 @@ def run_pipeline(
         timings["guardrails"] = cache_time
         timings["total"] = _ms(pipeline_start, time.perf_counter())
 
+        cache_sources = cache_result.get("sources", [])
+        detailed_cache_sources = []
+        for src in cache_sources:
+            if isinstance(src, dict):
+                detailed_cache_sources.append(src)
+            elif isinstance(src, str):
+                chunk = retrieval_engine.chunk_map.get(src)
+                if chunk:
+                    detailed_cache_sources.append({
+                        "chunk_id": src,
+                        "text": chunk["text"],
+                        "strategy": chunk["strategy"],
+                        "score": 1.0,
+                    })
+                else:
+                    detailed_cache_sources.append({
+                        "chunk_id": src,
+                        "text": "Cached passage content",
+                        "strategy": "hybrid",
+                        "score": 1.0,
+                    })
+
         log_query(
             query_text=clean_text,
             answered=True,
             refusal_reason=None,
             cache_hit=True,
             answer=cache_result["answer"],
-            sources=cache_result["sources"],
+            sources=[s if isinstance(s, str) else s.get("chunk_id") for s in cache_sources],
             timings=timings,
         )
 
@@ -94,7 +117,7 @@ def run_pipeline(
             "answer": cache_result["answer"],
             "answered": True,
             "refusal_reason": None,
-            "sources": cache_result["sources"],
+            "sources": detailed_cache_sources,
             "cache_hit": True,
             "timings_ms": timings,
         }
@@ -102,7 +125,7 @@ def run_pipeline(
     # ── 4. Retrieval Stage ──
     try:
         t0 = time.perf_counter()
-        candidates = retrieval_engine.search(clean_text, top_k=20, final_k=20)
+        candidates = retrieval_engine.search(clean_text, top_k=20, final_k=20, strategy=strategy)
         timings["retrieval"] = _ms(t0, time.perf_counter())
     except Exception as e:
         timings["retrieval"] = _ms(t0, time.perf_counter())
@@ -150,7 +173,6 @@ def run_pipeline(
 
     # ── 7. Generation Stage ──
     try:
-        t0 = time.perf_counter()
         generated = generate_answer(clean_text, ranked)
         timings["generation"] = _ms(t0, time.perf_counter())
     except Exception as e:
@@ -189,12 +211,23 @@ def run_pipeline(
             "timings_ms": timings,
         }
 
-    # ── 9. Cache Write ──
+    # ── 9. Cache Write & Final Response ──
     answer_text = generated.get("answer", "")
     source_ids = generated.get("sources", [])
-    semantic_cache.write(query_embedding, clean_text, answer_text, source_ids)
 
-    # ── 10. Final Response ──
+    detailed_sources = []
+    for r in ranked:
+        chunk = r["chunk"]
+        if not source_ids or chunk["chunk_id"] in source_ids:
+            detailed_sources.append({
+                "chunk_id": chunk["chunk_id"],
+                "text": chunk["text"],
+                "strategy": chunk["strategy"],
+                "score": float(r.get("combined_score", 0.0)),
+            })
+
+    semantic_cache.write(query_embedding, clean_text, answer_text, detailed_sources)
+
     timings["total"] = _ms(pipeline_start, time.perf_counter())
 
     log_query(
@@ -213,7 +246,7 @@ def run_pipeline(
         "answer": answer_text,
         "answered": True,
         "refusal_reason": None,
-        "sources": source_ids,
+        "sources": detailed_sources,
         "cache_hit": False,
         "timings_ms": timings,
     }

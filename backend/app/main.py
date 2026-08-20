@@ -4,13 +4,19 @@ FastAPI app — route definitions for the Voice RAG system.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.models.schemas import AskRequest, AskResponse
 from app.pipeline.retrieval import retrieval_engine
 from app.pipeline.rerank import reranker
 from app.pipeline.orchestrator import run_pipeline
+from app.pipeline.stream_generator import run_pipeline_stream
+from app.pipeline.generation import translate_to_english
 from app.db.logging_db import init_db, get_recent_logs
 from app.config import BACKEND_PORT
+from app.pipeline.stt import transcribe as stt_transcribe
+import time
 
 
 @asynccontextmanager
@@ -56,8 +62,20 @@ def ask(req: AskRequest):
         audio_base64=req.audio_base64,
         text=req.text,
         language_hint=req.language_hint,
+        strategy=req.strategy,
     )
     return result
+
+
+@app.post("/api/ask-stream")
+def ask_stream(req: AskRequest):
+    generator = run_pipeline_stream(
+        audio_base64=req.audio_base64,
+        text=req.text,
+        language_hint=req.language_hint,
+        strategy=req.strategy,
+    )
+    return StreamingResponse(generator, media_type="text/event-stream")
 
 
 @app.get("/api/guardrail-log")
@@ -112,6 +130,32 @@ def latency_stats():
         ),
         "total_ms": percentiles(total_times),
     }
+
+
+class TranslateRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/translate")
+async def translate_endpoint(request: TranslateRequest):
+    translated = translate_to_english(request.text)
+    return {"translated": translated}
+
+
+class TranscribeRequest(BaseModel):
+    audio_base64: str
+    language_hint: str = None
+
+
+@app.post("/api/transcribe")
+def transcribe_endpoint(req: TranscribeRequest):
+    t0 = time.time()
+    try:
+        text = stt_transcribe(req.audio_base64, req.language_hint)
+        duration = int((time.time() - t0) * 1000)
+        return {"transcript": text, "stt_ms": duration}
+    except Exception as e:
+        return {"transcript": f"Error transcribing: {str(e)}", "stt_ms": 0}
 
 
 if __name__ == "__main__":

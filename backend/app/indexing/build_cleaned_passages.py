@@ -31,9 +31,11 @@ def build_cleaned_passages(max_queries: int = None):
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     out_file = RAW_DATA_DIR / "passages.jsonl"
     
-    data_files = {
-        "val_hi": str(RAW_DATA_DIR / "hinval.parquet")
-    }
+    local_parquet = RAW_DATA_DIR / "hinval.parquet"
+    if local_parquet.exists():
+        data_files = {"val_hi": str(local_parquet)}
+    else:
+        data_files = {"val_hi": "https://huggingface.co/datasets/ai4bharat/MSMARCO-XI/resolve/main/validation/hinval.parquet"}
     
     dataset = load_dataset("parquet", data_files=data_files)
     

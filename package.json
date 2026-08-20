@@ -1,0 +1,15 @@
+{
+  "name": "rag-in-goa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Voice-Enabled RAG System — MSMARCO-XI",
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "cd backend && source venv/bin/activate && python3 -m app.main",
+    "dev": "npm run dev:frontend",
+    "build": "npm --prefix frontend run build",
+    "install:frontend": "npm --prefix frontend install",
+    "install:backend": "cd backend && source venv/bin/activate && pip install -r requirements.txt",
+    "setup": "npm run install:frontend"
+  }
+}

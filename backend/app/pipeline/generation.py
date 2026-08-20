@@ -106,3 +106,32 @@ def generate_answer(
             "confidence": 0.0,
             "sources": [],
         }
+
+
+def translate_to_english(text: str) -> str:
+    """Translate the input text into fluent English using Groq."""
+    if not GROQ_API_KEY:
+        return "Translation service unavailable (no API key configured)."
+
+    client = OpenAI(
+        api_key=GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1",
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=GROQ_MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a professional translator. Translate the user input text directly into fluent English. Output ONLY the translated English text. Do not add any preamble, explanation, quotes, or notes."
+                },
+                {"role": "user", "content": text},
+            ],
+            temperature=0.1,
+            max_tokens=1024,
+        )
+        translated = response.choices[0].message.content.strip()
+        return translated
+    except Exception as e:
+        return f"Translation failed: {str(e)}"

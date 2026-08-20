@@ -1,9 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 
-export default function MicButton({ onAudioRecorded, disabled }) {
-  const [isRecording, setIsRecording] = useState(false);
+export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecording, setIsRecording, disabled }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    // Stop recording programmatically if parent sets isRecording to false
+    if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    }
+  }, [isRecording]);
 
   const startRecording = async () => {
     if (disabled) return;
@@ -30,6 +40,33 @@ export default function MicButton({ onAudioRecorded, disabled }) {
         stream.getTracks().forEach((track) => track.stop());
       };
 
+      // Set up local real-time browser speech recognition (dictation)
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        // set to hi-IN to transcribe Hindi speech in Devanagari
+        recognition.lang = 'hi-IN';
+
+        recognition.onresult = (event) => {
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            transcript += event.results[i][0].transcript;
+          }
+          if (onDictationUpdate && transcript) {
+            onDictationUpdate(transcript);
+          }
+        };
+
+        recognition.onerror = (e) => {
+          console.error("Speech recognition error:", e);
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+      }
+
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (err) {
@@ -41,6 +78,9 @@ export default function MicButton({ onAudioRecorded, disabled }) {
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
       setIsRecording(false);
     }
   };
@@ -54,14 +94,25 @@ export default function MicButton({ onAudioRecorded, disabled }) {
   };
 
   return (
-    <button
-      type="button"
-      className={`mic-btn ${isRecording ? 'recording' : ''}`}
-      onClick={toggleRecording}
-      disabled={disabled}
-      title={isRecording ? 'Click to stop recording' : 'Click to record voice query'}
-    >
-      {isRecording ? '🛑' : '🎤'}
-    </button>
+    <div className="mic-wrapper">
+      <button
+        type="button"
+        className={`mic-btn ${isRecording ? 'recording' : ''}`}
+        onClick={toggleRecording}
+        disabled={disabled}
+        title={isRecording ? 'Click to stop recording' : 'Click to record voice query'}
+      >
+        {isRecording ? <span className="stop-icon-symbol" /> : <span className="mic-icon-symbol" />}
+      </button>
+      {isRecording && (
+        <div className="soundwave">
+          <span className="soundwave-bar"></span>
+          <span className="soundwave-bar"></span>
+          <span className="soundwave-bar"></span>
+          <span className="soundwave-bar"></span>
+          <span className="soundwave-bar"></span>
+        </div>
+      )}
+    </div>
   );
 }

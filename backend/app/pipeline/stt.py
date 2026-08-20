@@ -7,7 +7,7 @@ from typing import Optional
 
 from app.config import SARVAM_API_KEY
 
-SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text-translate"
+SARVAM_STT_URL = "https://api.sarvam.ai/speech-to-text"
 
 
 def transcribe(audio_base64: str, language_hint: Optional[str] = None) -> str:
@@ -30,14 +30,9 @@ def transcribe(audio_base64: str, language_hint: Optional[str] = None) -> str:
     }
 
     data = {
-        "model": "saaras:v2",
+        "model": "saaras:v3",
+        "mode": "transcribe",
     }
-
-    if language_hint:
-        lang_map = {"hi": "hi-IN", "en": "en-IN"}
-        data["language_code"] = lang_map.get(language_hint, "hi-IN")
-    else:
-        data["language_code"] = "hi-IN"
 
     try:
         resp = requests.post(
@@ -47,10 +42,12 @@ def transcribe(audio_base64: str, language_hint: Optional[str] = None) -> str:
             data=data,
             timeout=15,
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            raise RuntimeError(f"Sarvam STT HTTP {resp.status_code}: {resp.text}")
         result = resp.json()
         return result.get("transcript", "")
     except requests.exceptions.Timeout:
         raise RuntimeError("Sarvam STT request timed out.")
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Sarvam STT error: {str(e)[:200]}")
+        err_msg = getattr(e.response, "text", str(e)) if hasattr(e, "response") and e.response is not None else str(e)
+        raise RuntimeError(f"Sarvam STT error: {err_msg[:200]}")

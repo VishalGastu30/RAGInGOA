@@ -4,7 +4,7 @@ export default function GuardrailLog({ logs }) {
   if (!logs || logs.length === 0) {
     return (
       <div className="card">
-        <div className="card-title">🛡️ Live Guardrail Trace</div>
+        <div className="card-title">[LIVE GUARDRAIL TRACE]</div>
         <div className="no-logs">No decisions logged yet</div>
       </div>
     );
@@ -12,7 +12,7 @@ export default function GuardrailLog({ logs }) {
 
   return (
     <div className="card" style={{ maxHeight: '280px', overflowY: 'auto' }}>
-      <div className="card-title">🛡️ Live Guardrail Trace</div>
+      <div className="card-title">[LIVE GUARDRAIL TRACE]</div>
       {logs.map((log) => {
         const typeClass = log.cache_hit
           ? 'cached'
@@ -20,10 +20,10 @@ export default function GuardrailLog({ logs }) {
           ? 'answered'
           : 'refused';
         const label = log.cache_hit
-          ? '⚡ CACHED'
+          ? 'CACHED'
           : log.answered
-          ? '✅ ANSWERED'
-          : '⛔ REFUSED';
+          ? 'ANSWERED'
+          : 'REFUSED';
 
         return (
           <div key={log.id || Math.random()} className={`log-entry ${typeClass}`}>

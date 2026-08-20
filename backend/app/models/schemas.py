@@ -5,6 +5,7 @@ class AskRequest(BaseModel):
     audio_base64: Optional[str] = None
     text: Optional[str] = None
     language_hint: Optional[str] = None
+    strategy: Optional[str] = None
 
 class Timings(BaseModel):
     stt: Optional[int] = 0
@@ -19,6 +20,6 @@ class AskResponse(BaseModel):
     answer: str
     answered: bool
     refusal_reason: Optional[str] = None
-    sources: List[str] = []
+    sources: List[Dict] = []
     cache_hit: bool = False
     timings_ms: Timings

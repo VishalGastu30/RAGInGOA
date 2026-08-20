@@ -44,7 +44,7 @@ class SemanticCache:
             }
         return None
 
-    def write(self, query_embedding: np.ndarray, question: str, answer: str, sources: List[str]):
+    def write(self, query_embedding: np.ndarray, question: str, answer: str, sources: List[Any]):
         """Store a new question→answer pair."""
         if len(self.entries) >= self.max_entries:
             self.entries.pop(0)  # evict oldest

@@ -33,11 +33,18 @@ class Reranker:
         if not candidates:
             return []
 
-        pairs = [(query, c["chunk"]["text"]) for c in candidates]
-        scores = self.model.predict(pairs)
-
-        for i, c in enumerate(candidates):
-            c["rerank_score"] = float(scores[i])
+        # Check if query contains Devanagari/Hindi characters
+        has_devanagari = any('\u0900' <= char <= '\u097f' for char in query)
+        
+        if has_devanagari:
+            print("[rerank] Indic query detected. Bypassing English cross-encoder, using combined_score.")
+            for c in candidates:
+                c["rerank_score"] = c.get("combined_score", 0.0)
+        else:
+            pairs = [(query, c["chunk"]["text"]) for c in candidates]
+            scores = self.model.predict(pairs)
+            for i, c in enumerate(candidates):
+                c["rerank_score"] = float(scores[i])
 
         ranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
         return ranked[:top_k]

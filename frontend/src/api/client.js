@@ -10,6 +10,16 @@ export async function ask({ text, audio_base64, language_hint } = {}) {
   return res.json();
 }
 
+export async function transcribe({ audio_base64, language_hint } = {}) {
+  const res = await fetch(`${BACKEND_URL}/api/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audio_base64, language_hint }),
+  });
+  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchGuardrailLog(limit = 10) {
   const res = await fetch(`${BACKEND_URL}/api/guardrail-log?limit=${limit}`);
   if (!res.ok) return { logs: [] };

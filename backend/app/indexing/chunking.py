@@ -6,12 +6,14 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 from tqdm import tqdm
 
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-except Exception:
-    nltk.download('punkt_tab')
+for pkg in ['punkt', 'punkt_tab']:
+    try:
+        nltk.data.find(f'tokenizers/{pkg}')
+    except (LookupError, Exception):
+        try:
+            nltk.download(pkg, quiet=True)
+        except Exception:
+            pass
 
 def split_into_sentences(text: str) -> List[str]:
     # Simple wrapper for nltk sent_tokenize
