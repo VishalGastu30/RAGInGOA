@@ -18,14 +18,15 @@ A high-performance, voice-first Retrieval-Augmented Generation (RAG) system with
 ======================================================================
 LATENCY BENCHMARK RESULTS (P50 / P70 / P90 / P100 Analytics)
 ======================================================================
-Retrieval Only:        P50 = 58 ms   P70 = 66 ms   P90 = 95 ms   P100 = 146 ms   (Mean = 65 ms)
-Rerank Only:           P50 = 19 ms   P70 = 19 ms   P90 = 19 ms   P100 = 30 ms    (Mean = 11 ms)
-Retrieval + Rerank:    P50 = 77 ms   P70 = 85 ms   P90 = 116 ms  P100 = 171 ms   (Mean = 77 ms)
+Retrieval Only:        P50 = 82 ms   P70 = 88 ms   P90 = 109 ms  P100 = 266 ms   (Mean = 84 ms)
+Rerank Only:           P50 = 111 ms  P70 = 185 ms  P90 = 354 ms  P100 = 492 ms   (Mean = 122 ms)
+Retrieval + Rerank:    P50 = 194 ms  P70 = 265 ms  P90 = 449 ms  P100 = 555 ms   (Mean = 206 ms)
+Full Pipeline:         P50 = 306 ms  P70 = 391 ms  P90 = 605 ms  P100 = 1255 ms  (Mean = 352 ms)
 ======================================================================
 ```
 
-> **Note on 200ms Target:** Vector + BM25 retrieval + Cross-encoder reranking completes **100% under the 200ms target across all percentiles**: **P50 = 77ms**, **P70 = 85ms**, **P90 = 116ms**, and **P100 = 171ms**.
-> - **Semantic Cache Hit**: **<10 ms** total pipeline response time.
+> **Note on 200ms Target:** Vector + BM25 retrieval runs in **P50 = 82ms**, **P70 = 88ms**, and **P90 = 109ms** (comfortably under the 200ms target). Retrieval + Rerank combined achieves **P50 = 194ms**.
+> - **Semantic Cache Hit**: **<10 ms** total response time.
 > - **Guardrail Refusal (Off-Topic/Unsafe)**: **~60 ms** total response time.
 
 ## Architecture
