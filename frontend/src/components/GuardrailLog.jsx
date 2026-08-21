@@ -10,6 +10,12 @@ export default function GuardrailLog({ logs }) {
     );
   }
 
+  const formatTimestamp = (ts) => {
+    if (!ts) return '';
+    const date = new Date(ts * 1000);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+
   return (
     <div className="card" style={{ maxHeight: '280px', overflowY: 'auto' }}>
       <div className="card-title">[LIVE GUARDRAIL TRACE]</div>
@@ -27,13 +33,25 @@ export default function GuardrailLog({ logs }) {
 
         return (
           <div key={log.id || Math.random()} className={`log-entry ${typeClass}`}>
-            <div className="log-query" title={log.query_text}>
-              "{log.query_text}"
+            <div className="log-header-row">
+              <span className="log-query" title={log.query_text}>
+                "{log.query_text}"
+              </span>
+              {log.timestamp && (
+                <span className="log-time">{formatTimestamp(log.timestamp)}</span>
+              )}
             </div>
             <div className="log-meta">
               <span className={`log-status ${typeClass}`}>{label}</span>
+              {log.top_retrieval_score != null && (
+                <span className="log-score-badge">
+                  SCORE: {Math.round(log.top_retrieval_score * 100)}%
+                </span>
+              )}
               {log.refusal_reason && (
-                <span style={{ color: 'var(--accent-rose)' }}>{log.refusal_reason}</span>
+                <span style={{ color: 'var(--accent-rose)', fontSize: '11px' }}>
+                  {log.refusal_reason}
+                </span>
               )}
             </div>
           </div>

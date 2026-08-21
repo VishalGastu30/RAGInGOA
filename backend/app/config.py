@@ -18,8 +18,20 @@ BACKEND_PORT = int(os.getenv("BACKEND_PORT", 8000))
 # Paths
 DATA_DIR = BASE_DIR / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
-VECTOR_INDEX_PATH = Path(os.getenv("VECTOR_INDEX_PATH", str(DATA_DIR / "index")))
-LOG_DB_PATH = Path(os.getenv("LOG_DB_PATH", str(DATA_DIR / "logs.db")))
+
+_v_env = os.getenv("VECTOR_INDEX_PATH")
+if _v_env:
+    _vp = Path(_v_env)
+    VECTOR_INDEX_PATH = _vp if _vp.is_absolute() else (BASE_DIR / _vp).resolve()
+else:
+    VECTOR_INDEX_PATH = DATA_DIR / "index"
+
+_l_env = os.getenv("LOG_DB_PATH")
+if _l_env:
+    _lp = Path(_l_env)
+    LOG_DB_PATH = _lp if _lp.is_absolute() else (BASE_DIR / _lp).resolve()
+else:
+    LOG_DB_PATH = DATA_DIR / "logs.db"
 
 # Pipeline Thresholds
 RETRIEVAL_SCORE_THRESHOLD = float(os.getenv("RETRIEVAL_SCORE_THRESHOLD", 0.35))

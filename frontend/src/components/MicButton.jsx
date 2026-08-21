@@ -1,9 +1,11 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import WaveformCanvas from './WaveformCanvas';
 
 export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecording, setIsRecording, disabled }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recognitionRef = useRef(null);
+  const [activeStream, setActiveStream] = useState(null);
 
   useEffect(() => {
     // Stop recording programmatically if parent sets isRecording to false
@@ -19,6 +21,7 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
     if (disabled) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setActiveStream(stream);
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
@@ -38,6 +41,7 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
         };
         // Stop all audio tracks
         stream.getTracks().forEach((track) => track.stop());
+        setActiveStream(null);
       };
 
       // Set up local real-time browser speech recognition (dictation)
@@ -104,15 +108,7 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
       >
         {isRecording ? <span className="stop-icon-symbol" /> : <span className="mic-icon-symbol" />}
       </button>
-      {isRecording && (
-        <div className="soundwave">
-          <span className="soundwave-bar"></span>
-          <span className="soundwave-bar"></span>
-          <span className="soundwave-bar"></span>
-          <span className="soundwave-bar"></span>
-          <span className="soundwave-bar"></span>
-        </div>
-      )}
+      <WaveformCanvas isRecording={isRecording} stream={activeStream} />
     </div>
   );
 }

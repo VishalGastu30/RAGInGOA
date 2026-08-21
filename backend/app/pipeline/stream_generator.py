@@ -124,7 +124,7 @@ def run_pipeline_stream(
         for chunk in response_stream:
             token = chunk.choices[0].delta.content
             if token:
-                yield f"data: {json.dumps({'token': token})}\n\n"
+                yield f"data: {json.dumps({'token': token, 'answer_chunk': token})}\n\n"
 
         timings["generation"] = int((time.perf_counter() - t_gen_start) * 1000)
 

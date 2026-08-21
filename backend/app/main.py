@@ -53,7 +53,13 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "version": "0.1.0",
+        "index_chunks": len(retrieval_engine.chunks) if retrieval_engine._loaded else 0,
+        "embedding_model": retrieval_engine.model.get_sentence_embedding_dimension() if retrieval_engine._loaded and retrieval_engine.model else 384,
+        "reranker_loaded": reranker._loaded,
+    }
 
 
 @app.post("/api/ask")

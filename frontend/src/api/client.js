@@ -1,10 +1,10 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-export async function ask({ text, audio_base64, language_hint } = {}) {
+export async function ask({ text, audio_base64, language_hint, strategy } = {}) {
   const res = await fetch(`${BACKEND_URL}/api/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, audio_base64, language_hint }),
+    body: JSON.stringify({ text, audio_base64, language_hint, strategy }),
   });
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
   return res.json();

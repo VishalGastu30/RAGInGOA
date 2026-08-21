@@ -2,10 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import MicButton from './components/MicButton';
 import LatencyDashboard from './components/LatencyDashboard';
 import GuardrailLog from './components/GuardrailLog';
+import SponsorMarquee from './components/SponsorMarquee';
 import { ask, fetchGuardrailLog, fetchLatencyStats, transcribe } from './api/client';
 
 export default function App() {
-  const [messages, setMessages] = useState([]);
+  // Restore messages from localStorage if available
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem('rag_goa_messages');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [lastTimings, setLastTimings] = useState(null);
@@ -15,15 +25,23 @@ export default function App() {
   const [strictMode, setStrictMode] = useState(true);
   const [activeStrategy, setActiveStrategy] = useState('hybrid');
   const [inspectedSources, setInspectedSources] = useState(null);
-  const [inspectedMessageIndex, setInspectedMessageIndex] = useState(null);
-  
-  // Theme state: defaults to retro-light as requested
   const [theme, setTheme] = useState('retro-light');
-  
   const [isRecording, setIsRecording] = useState(false);
   const [showGoaModal, setShowGoaModal] = useState(false);
+  const [footerOpen, setFooterOpen] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+
   const ignoreNextAudioRef = useRef(false);
   const chatEndRef = useRef(null);
+
+  // Save messages to localStorage whenever they update
+  useEffect(() => {
+    try {
+      localStorage.setItem('rag_goa_messages', JSON.stringify(messages));
+    } catch (e) {
+      // quota exceeded fallback
+    }
+  }, [messages]);
 
   useEffect(() => {
     loadSidebars();
@@ -34,6 +52,23 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      // Esc closes modal
+      if (e.key === 'Escape') {
+        setShowGoaModal(false);
+      }
+      // 'M' toggles mic when focus is not inside textarea or input
+      if ((e.key === 'm' || e.key === 'M') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        setIsRecording((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   const loadSidebars = async () => {
     try {
@@ -48,15 +83,25 @@ export default function App() {
     }
   };
 
+  // Language script detector helper
+  const detectLanguageBadge = (text) => {
+    if (!text) return null;
+    const devanagariRegex = /[\u0900-\u097F]/;
+    if (devanagariRegex.test(text)) {
+      return { code: 'HI/MR', label: 'हिंदी / मराठी' };
+    }
+    return { code: 'EN', label: 'ENGLISH' };
+  };
+
   const askPipeline = async ({ text, audio_base64 }) => {
     setLoading(true);
     let userMsgIndex = -1;
-    
+
     // Add User Message
     if (audio_base64) {
       setMessages((prev) => {
         userMsgIndex = prev.length;
-        return [...prev, { role: 'user', content: '🎤 [Voice Recording Sent]' }];
+        return [...prev, { role: 'user', content: '🎤 [Voice Query Sent]' }];
       });
       setActiveStage('Sarvam STT (Transcribing)...');
     } else {
@@ -75,7 +120,7 @@ export default function App() {
           audio_base64,
           strategy: activeStrategy === 'hybrid' ? null : activeStrategy,
         });
-        
+
         if (res.transcript && audio_base64) {
           setMessages((prev) =>
             prev.map((msg, i) =>
@@ -83,7 +128,7 @@ export default function App() {
             )
           );
         }
-        
+
         setLastTimings(res.timings_ms);
         setMessages((prev) => [
           ...prev,
@@ -95,6 +140,7 @@ export default function App() {
             sources: res.sources || [],
             cacheHit: res.cache_hit,
             timings: res.timings_ms,
+            timestamp: Date.now(),
           }
         ]);
         loadSidebars();
@@ -112,15 +158,15 @@ export default function App() {
         });
 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
-        
+
         let assistantAnswer = '';
         let assistantSources = [];
         let finalTimings = null;
         let refusalReason = null;
-        
+
         setMessages((prev) => [
           ...prev,
           {
@@ -129,18 +175,19 @@ export default function App() {
             answered: true,
             sources: [],
             timings: null,
+            timestamp: Date.now(),
           }
         ]);
-        
+
         let buffer = '';
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          
+
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
-          
+
           for (const line of lines) {
             const cleanLine = line.trim();
             if (cleanLine.startsWith('data: ')) {
@@ -155,8 +202,8 @@ export default function App() {
                     )
                   );
                 }
-                if (chunk.answer_chunk) {
-                  assistantAnswer += chunk.answer_chunk;
+                if (chunk.token || chunk.answer_chunk) {
+                  assistantAnswer += chunk.token || chunk.answer_chunk;
                   setMessages((prev) => {
                     const newMsgs = [...prev];
                     const last = newMsgs[newMsgs.length - 1];
@@ -191,7 +238,7 @@ export default function App() {
             }
           }
         }
-        
+
         if (finalTimings) setLastTimings(finalTimings);
         setMessages((prev) => {
           const newMsgs = [...prev];
@@ -210,6 +257,7 @@ export default function App() {
           role: 'assistant',
           content: `Error connecting to pipeline: ${err.message}`,
           answered: false,
+          timestamp: Date.now(),
         }
       ]);
     } finally {
@@ -238,22 +286,13 @@ export default function App() {
     }
     if (loading) return;
 
-    setLoading(true);
-    setActiveStage('Transcribing Voice...');
+    await askPipeline({ audio_base64: base64Audio });
+  };
 
-    try {
-      const res = await transcribe({ audio_base64: base64Audio });
-      if (res.transcript) {
-        setInputText(res.transcript);
-        setLastTimings({ stt: res.stt_ms || 0 });
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Error transcribing audio: ' + err.message);
-    } finally {
-      setLoading(false);
-      setActiveStage('');
-    }
+  const handleCopy = (text, idx) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   const handleTranslateMessage = async (msgIndex) => {
@@ -261,7 +300,7 @@ export default function App() {
     if (!msg || !msg.content || loading) return;
 
     setLoading(true);
-    setActiveStage('Translating...');
+    setActiveStage('Translating to English...');
 
     try {
       const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -279,7 +318,7 @@ export default function App() {
             ? {
                 ...m,
                 originalContent: m.originalContent || m.content,
-                content: data.translated_text,
+                content: data.translated,
                 isTranslated: true,
               }
             : m
@@ -296,13 +335,13 @@ export default function App() {
 
   const handleClearHistory = () => {
     setMessages([]);
+    localStorage.removeItem('rag_goa_messages');
     setLastTimings(null);
     setInspectedSources(null);
-    setInspectedMessageIndex(null);
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
       e.preventDefault();
       handleSendText();
     }
@@ -310,7 +349,8 @@ export default function App() {
 
   const sampleQueries = [
     'What is a corporation?',
-    'निगम क्या है?',
+    'निगम क्या होता है?',
+    'Kya Corporation legal entity hai?',
     'Who won the cricket world cup?',
   ];
 
@@ -323,7 +363,7 @@ export default function App() {
             <img src="/goa_hindi.svg" alt="गोवा" className="goa-devanagari" />
           </div>
           <span className="header-badge">TASK 2</span>
-          <span className="header-subtitle">VOICE-ENABLED MULTILINGUAL RAG</span>
+          <span className="header-subtitle">VOICE-ENABLED INDIC RAG</span>
         </div>
         <div className="header-right">
           <div className="status-pill">FAISS FlatIP 384-d</div>
@@ -333,7 +373,7 @@ export default function App() {
             <span className="status-dot green" />
             Backend Live
           </div>
-          <button 
+          <button
             className="theme-toggle-btn"
             onClick={() => setTheme(theme === 'retro-light' ? 'dark' : 'retro-light')}
           >
@@ -346,16 +386,16 @@ export default function App() {
       <div className="retro-controls-bar">
         <div className="controls-left">
           <label className="checkbox-container">
-            <input 
-              type="checkbox" 
-              checked={strictMode} 
-              onChange={(e) => setStrictMode(e.target.checked)} 
+            <input
+              type="checkbox"
+              checked={strictMode}
+              onChange={(e) => setStrictMode(e.target.checked)}
             />
             <span className="checkmark"></span>
-            Cross-Lingual Guardrails
+            Cross-Lingual Guardrails & Refusal
           </label>
         </div>
-        
+
         <div className="controls-right">
           <span className="control-label">CHUNKING STRATEGY:</span>
           <div className="strategy-selector-retro">
@@ -379,23 +419,23 @@ export default function App() {
         <section className="retro-panel terminal-panel">
           <div className="panel-header-retro">
             <span className="panel-title-retro">THE TERMINAL</span>
-            <span className="panel-badge-retro">VOICE INTERFACE</span>
+            <span className="panel-badge-retro">VOICE INTERFACE (PRESS 'M')</span>
           </div>
 
           <div className="panel-content-retro">
             {/* Recording Interface Card */}
             <div className="mic-interface-card">
               <div className="voice-dial-wrapper">
-                <MicButton 
-                  onAudioRecorded={handleAudioRecorded} 
-                  onDictationUpdate={(text) => setInputText(text)} 
+                <MicButton
+                  onAudioRecorded={handleAudioRecorded}
+                  onDictationUpdate={(text) => setInputText(text)}
                   isRecording={isRecording}
                   setIsRecording={setIsRecording}
-                  disabled={loading} 
+                  disabled={loading}
                 />
               </div>
               <div className={`status-badge-retro ${isRecording ? 'recording' : ''}`}>
-                {isRecording ? '>>> RECORDING ACTIVE' : '>>> READY FOR VOICE INPUT'}
+                {isRecording ? '>>> RECORDING ACTIVE' : '>>> CLICK MIC OR PRESS "M" TO SPEAK'}
               </div>
             </div>
 
@@ -403,7 +443,7 @@ export default function App() {
             <div className="retro-input-wrapper">
               <textarea
                 className="retro-textarea"
-                placeholder="Ask in English, Hindi, or Marathi..."
+                placeholder="Ask in English, Hindi, or Marathi (Ctrl+Enter to send)..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -421,7 +461,7 @@ export default function App() {
 
             {/* Quick Prompts */}
             <div className="quick-prompts-retro">
-              <span className="quick-label">QUICK PROMPTS (EN + HI + MR):</span>
+              <span className="quick-label">QUICK PROMPTS (EN + HI + HINGLISH):</span>
               <div className="chips-row">
                 {sampleQueries.map((q, idx) => (
                   <button
@@ -465,10 +505,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Transcribed Feed */}
+            {/* Transcribed Session Feed */}
             <div className="terminal-feed-card">
               <div className="feed-header-retro">
-                <span>TRANSCRIBED SESSION LOGS</span>
+                <span>SESSION LOGS ({messages.length})</span>
                 <button className="clear-btn-retro" onClick={handleClearHistory}>
                   Clear History
                 </button>
@@ -477,33 +517,59 @@ export default function App() {
                 {messages.length === 0 ? (
                   <div className="feed-empty">No active session. Speak or type above to begin.</div>
                 ) : (
-                  messages.map((msg, index) => (
-                    <div key={index} className={`feed-msg-row ${msg.role}`}>
-                      <span className="msg-tag">[{msg.role.toUpperCase()}]</span>
-                      <span className="msg-text">{msg.content}</span>
-                      {msg.role === 'assistant' && msg.content && (
-                        <div className="translate-wrapper-retro">
-                          <button
-                            type="button"
-                            className="btn-translate-retro"
-                            onClick={() => {
-                              if (msg.isTranslated) {
-                                  setMessages((prev) =>
-                                    prev.map((m, i) =>
-                                      i === index ? { ...m, content: m.originalContent, isTranslated: false } : m
-                                    )
-                                  );
-                              } else {
-                                handleTranslateMessage(index);
-                              }
-                            }}
-                          >
-                            {msg.isTranslated ? '[SHOW ORIGINAL]' : '[TRANSLATE TO ENGLISH]'}
-                          </button>
+                  messages.map((msg, index) => {
+                    const langBadge = detectLanguageBadge(msg.content);
+                    return (
+                      <div key={index} className={`feed-msg-row ${msg.role}`}>
+                        <div className="msg-row-header">
+                          <span className="msg-tag">[{msg.role.toUpperCase()}]</span>
+                          {langBadge && (
+                            <span className="lang-badge" title={langBadge.label}>
+                              {langBadge.code}
+                            </span>
+                          )}
+                          {msg.cacheHit && (
+                            <span className="cache-badge" title="Retrieved instantly from Semantic Cache">
+                              ⚡ CACHE HIT
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))
+                        <span className="msg-text">{msg.content}</span>
+                        {msg.role === 'assistant' && msg.content && (
+                          <div className="msg-actions-retro">
+                            <button
+                              type="button"
+                              className="btn-copy-retro"
+                              onClick={() => handleCopy(msg.content, index)}
+                            >
+                              {copiedIndex === index ? '✓ COPIED' : '[COPY]'}
+                            </button>
+                            {langBadge?.code === 'HI/MR' && (
+                              <button
+                                type="button"
+                                className="btn-translate-retro"
+                                onClick={() => {
+                                  if (msg.isTranslated) {
+                                    setMessages((prev) =>
+                                      prev.map((m, i) =>
+                                        i === index
+                                          ? { ...m, content: m.originalContent, isTranslated: false }
+                                          : m
+                                      )
+                                    );
+                                  } else {
+                                    handleTranslateMessage(index);
+                                  }
+                                }}
+                              >
+                                {msg.isTranslated ? '[SHOW ORIGINAL]' : '[TRANSLATE TO ENGLISH]'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
                 {loading && (
                   <div className="feed-msg-row assistant loading">
@@ -522,7 +588,7 @@ export default function App() {
           <div className="panel-header-retro">
             <span className="panel-title-retro">THE KNOWLEDGE SEA</span>
             <span className={`panel-badge-retro ${messages.length > 0 ? 'active' : ''}`}>
-              {messages.length > 0 ? 'RESULT READY' : 'AWAITING QUERY'}
+              {messages.length > 0 ? 'RESULTS ACTIVE' : 'AWAITING QUERY'}
             </span>
           </div>
 
@@ -531,36 +597,60 @@ export default function App() {
               <div className="screen-grid-lines" />
               {messages.length === 0 ? (
                 <div className="screen-fallback">
-                  <div className="fallback-logo-container">
-                    <img src="/hacker_house_goa_logo.png" alt="Hacker House Goa" className="fallback-logo-img" />
+                  <div className="hero-banner-container">
+                    <img src="/goa_beach_tech_sunset.jpg" alt="Goa Tech Sunset" className="hero-banner-img" />
                   </div>
                   <div className="fallback-title">AWAITING QUERY INPUT</div>
                   <div className="fallback-subtitle">
-                    Speak into the Terminal microphone or type a query in the textbox to retrieval-augment MSMARCO-XI.
+                    Speak into the microphone or type a query in the terminal to retrieval-augment MSMARCO-XI.
                   </div>
-                  <div className="fallback-help-box">
-                    Click the floating [EXPLORE GOA] button on the side to watch popular local travel videos!
+                  <div className="goa-explorer-widget">
+                    <div className="explorer-title">GOA HOTSPOT EXPLORER (CLICK TO WATCH)</div>
+                    <div className="explorer-grid">
+                      {[
+                        { name: 'Fontainhas Quarter', url: 'https://www.youtube.com/watch?v=3I2VqP726yU', desc: 'Latin quarter, historic colorful houses' },
+                        { name: 'Vagator Cliffs', url: 'https://youtu.be/jNSHoKCid6Y?si=osAsXLJtzcLcKyEj', desc: 'Red clay cliffs, party vibes & sunsets' },
+                        { name: 'Palolem Beach', url: 'https://youtu.be/sdD-pAK8nBM?si=zo3RAps3GkZ-8Ga7', desc: 'Scenic South Goa crescent bay' },
+                        { name: 'Dudhsagar Falls', url: 'https://youtu.be/fx3rZ9seX7s?si=s010WKpp8yabb4av', desc: 'Four-tiered mountain waterfall' }
+                      ].map((spot, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="explorer-card"
+                          onClick={() => window.open(spot.url, '_blank')}
+                        >
+                          <div className="spot-name">{spot.name}</div>
+                          <div className="spot-desc">{spot.desc}</div>
+                          <div className="spot-action">WATCH VIDEO ➔</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className="screen-results">
-                  {(() => {
-                    const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant');
-                    if (!lastAssistant) return null;
-                    return (
-                      <div className="results-wrapper">
-                        <div className="response-box">
-                          <div className="response-header">[FUSED RESPONSE]</div>
-                          <div className="response-body">{lastAssistant.content}</div>
+                  {/* Render Assistant Answers History */}
+                  {messages
+                    .filter((m) => m.role === 'assistant')
+                    .map((assistantMsg, idx) => (
+                      <div key={idx} className="results-wrapper">
+                        <div className={`response-box ${!assistantMsg.answered ? 'refused-box' : ''}`}>
+                          <div className="response-header">
+                            <span>[FUSED RESPONSE #{idx + 1}]</span>
+                            {assistantMsg.cacheHit && (
+                              <span className="response-cache-tag">⚡ CACHED (&lt;10ms)</span>
+                            )}
+                          </div>
+                          <div className="response-body">{assistantMsg.content}</div>
                         </div>
 
-                        {lastAssistant.sources && lastAssistant.sources.length > 0 && (
+                        {assistantMsg.sources && assistantMsg.sources.length > 0 && (
                           <div className="sources-section-retro">
-                            <div className="sources-header-retro">RETRIEVED DATA CHUNKS</div>
+                            <div className="sources-header-retro">RETRIEVED DATA CHUNKS ({assistantMsg.sources.length})</div>
                             <div className="sources-list-retro">
-                              {lastAssistant.sources.map((src, idx) => (
-                                <div 
-                                  key={idx} 
+                              {assistantMsg.sources.map((src, sIdx) => (
+                                <div
+                                  key={sIdx}
                                   className={`source-item-retro ${inspectedSources?.chunk_id === src.chunk_id ? 'inspected' : ''}`}
                                   onClick={() => {
                                     if (inspectedSources?.chunk_id === src.chunk_id) {
@@ -571,8 +661,8 @@ export default function App() {
                                   }}
                                 >
                                   <div className="source-item-header">
-                                    <span>MATCH {idx + 1} ({src.strategy.toUpperCase()})</span>
-                                    <span>SCORE: {Math.round(src.score * 100)}%</span>
+                                    <span>MATCH {sIdx + 1} ({src.strategy?.toUpperCase() || 'HYBRID'})</span>
+                                    <span>SCORE: {Math.round((src.score || 0) * 100)}%</span>
                                   </div>
                                   <div className="source-item-body">{src.text}</div>
                                 </div>
@@ -581,8 +671,7 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                    );
-                  })()}
+                    ))}
                 </div>
               )}
             </div>
@@ -590,25 +679,35 @@ export default function App() {
         </section>
       </div>
 
+      {/* Sponsor Marquee Bar */}
+      <SponsorMarquee />
+
       {/* Footer: Telemetry & Audit */}
-      <footer className="retro-footer">
-        <div className="footer-header">
-          <span className="footer-title">TELEMETRY & GUARDRAIL AUDIT</span>
-          <span className="footer-subtitle">STAGE LATENCIES & LOGS</span>
-        </div>
-        <div className="footer-content">
-          <div className="telemetry-col">
-            <LatencyDashboard timings={lastTimings} stats={stats} />
+      <footer className={`retro-footer ${footerOpen ? 'open' : 'closed'}`}>
+        <div className="footer-header" onClick={() => setFooterOpen(!footerOpen)}>
+          <div className="footer-title-group">
+            <span className="footer-title">TELEMETRY & GUARDRAIL AUDIT</span>
+            <span className="footer-subtitle">STAGE LATENCIES & LOGS</span>
           </div>
-          <div className="audit-col">
-            <GuardrailLog logs={logs} />
-          </div>
+          <button type="button" className="footer-toggle-btn">
+            {footerOpen ? '▼ HIDE PANEL' : '▲ SHOW TELEMETRY'}
+          </button>
         </div>
+        {footerOpen && (
+          <div className="footer-content">
+            <div className="telemetry-col">
+              <LatencyDashboard timings={lastTimings} stats={stats} />
+            </div>
+            <div className="audit-col">
+              <GuardrailLog logs={logs} />
+            </div>
+          </div>
+        )}
       </footer>
 
       {/* Floating Goa Explorer Button */}
-      <button 
-        type="button" 
+      <button
+        type="button"
         className="goa-floating-btn"
         onClick={() => setShowGoaModal(true)}
       >

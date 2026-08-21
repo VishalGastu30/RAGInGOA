@@ -16,11 +16,33 @@ export default function LatencyDashboard({ timings, stats }) {
     return 'timing-slow';
   };
 
+  const total = timings?.total || 1;
+  const sttPct = Math.round(((timings?.stt || 0) / total) * 100);
+  const retPct = Math.round(((timings?.retrieval || 0) / total) * 100);
+  const rrkPct = Math.round(((timings?.rerank || 0) / total) * 100);
+  const grdPct = Math.round(((timings?.guardrails || 0) / total) * 100);
+  const genPct = Math.round(((timings?.generation || 0) / total) * 100);
+
   return (
     <div className="card">
       <div className="card-title">[STAGE LATENCIES (LAST QUERY)]</div>
       {timings ? (
         <>
+          {/* Stacked Proportional Bar */}
+          <div className="proportional-bar-wrapper" title="Proportional Time Breakdown">
+            <div className="proportional-bar">
+              {timings.stt > 0 && (
+                <div className="p-segment stt-seg" style={{ width: `${sttPct}%` }} title={`STT: ${timings.stt}ms (${sttPct}%)`} />
+              )}
+              <div className="p-segment ret-seg" style={{ width: `${Math.max(retPct, 2)}%` }} title={`Retrieval: ${timings.retrieval}ms (${retPct}%)`} />
+              <div className="p-segment rrk-seg" style={{ width: `${Math.max(rrkPct, 2)}%` }} title={`Rerank: ${timings.rerank}ms (${rrkPct}%)`} />
+              <div className="p-segment grd-seg" style={{ width: `${Math.max(grdPct, 2)}%` }} title={`Guardrails: ${timings.guardrails}ms (${grdPct}%)`} />
+              {timings.generation > 0 && (
+                <div className="p-segment gen-seg" style={{ width: `${genPct}%` }} title={`LLM Gen: ${timings.generation}ms (${genPct}%)`} />
+              )}
+            </div>
+          </div>
+
           <div className="timing-row">
             <span className="timing-label"><span className="icon-marker stt-mark"></span> Speech-to-Text (Sarvam)</span>
             <span className={`timing-value ${getTimingClass(timings.stt || 0)}`}>{timings.stt || 0} ms</span>
@@ -52,23 +74,22 @@ export default function LatencyDashboard({ timings, stats }) {
           </div>
 
           <div className="timing-gauge-container">
-            <div className="timing-gauge-title">Target Threshold Comparison</div>
+            <div className="timing-gauge-title">Retrieval Target Threshold (&lt;200ms)</div>
             <div className="gauge-track">
               <div 
                 className="gauge-fill" 
                 style={{ 
-                  width: `${Math.min(((timings.total || 0) / 400) * 100, 100)}%`,
-                  background: (timings.total || 0) < 200 ? 'var(--accent-emerald)' : (timings.total || 0) < 500 ? 'var(--accent-amber)' : 'var(--accent-rose)'
+                  width: `${Math.min((((timings.retrieval || 0) + (timings.rerank || 0)) / 200) * 100, 100)}%`,
+                  background: ((timings.retrieval || 0) + (timings.rerank || 0)) <= 200 ? '#22C55E' : '#EF4444'
                 }} 
               />
-              <div className="gauge-target-marker" style={{ left: '50%' }}>
-                <span className="gauge-target-label">200ms Target</span>
+              <div className="gauge-target-marker" style={{ left: '100%' }}>
+                <span className="gauge-target-label">200ms</span>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)' }}>
-              <span>0ms</span>
-              <span>200ms</span>
-              <span>400ms+</span>
+              <span>Retrieval+Rerank: {(timings.retrieval || 0) + (timings.rerank || 0)}ms</span>
+              <span>Target: 200ms</span>
             </div>
           </div>
         </>
