@@ -70,14 +70,20 @@ def run_benchmark(n: int = 100):
         if len(queries) >= n:
             break
 
-    # Also add some off-topic ones to test guardrail latency
-    off_topic = [
+    # Also add Indic/Hinglish & off-topic queries to test multilingual guardrail latency
+    special_test_queries = [
         "What is the capital of France?",
         "Who won the cricket world cup?",
         "Best recipe for biryani",
         "Latest iPhone features",
+        "निगम क्या होता है?",
+        "भारत की राजधानी क्या है?",
+        "Kya Corporation legal entity hai?",
+        "Goa me best beach konsa hai?",
+        "What is the definition of gross income?",
+        "कंपनी अधिनियम क्या है?",
     ]
-    queries = queries[:max(n - len(off_topic), 0)] + off_topic
+    queries = queries[:max(n - len(special_test_queries), 0)] + special_test_queries
     random.shuffle(queries)
     queries = queries[:n]
 
@@ -134,6 +140,6 @@ def run_benchmark(n: int = 100):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--n", type=int, default=100, help="Number of queries to benchmark")
+    parser.add_argument("--n", type=int, default=200, help="Number of queries to benchmark")
     args = parser.parse_args()
     run_benchmark(n=args.n)

@@ -16,15 +16,15 @@ A high-performance, voice-first Retrieval-Augmented Generation (RAG) system with
 
 ```
 ============================================================
-LATENCY BENCHMARK RESULTS (n=30 queries)
+LATENCY BENCHMARK RESULTS (n=100 queries, EN + HI + Hinglish)
 ============================================================
-Retrieval Only:        P50 = 35 ms   P70 = 36 ms   P90 = 47 ms   P100 = 151 ms   (Mean = 37 ms)
-Rerank Only:           P50 = 806 ms  P70 = 1005 ms P90 = 1200 ms P100 = 1392 ms  (Mean = 832 ms)
-Retrieval + Rerank:    P50 = 937 ms  P70 = 1051 ms P90 = 1228 ms P100 = 1436 ms  (Mean = 870 ms)
+Retrieval Only:        P50 = 22 ms   P70 = 23 ms   P90 = 29 ms   P100 = 186 ms   (Mean = 25 ms)
+Rerank Only:           P50 = 78 ms   P70 = 79 ms   P90 = 80 ms   P100 = 146 ms   (Mean = 80 ms)
+Retrieval + Rerank:    P50 = 100 ms  P70 = 102 ms  P90 = 108 ms  P100 = 267 ms   (Mean = 105 ms)
 ============================================================
 ```
 
-> **Note on 200ms Target:** Vector + BM25 retrieval comfortably beats the 200ms target at **P50 = 35ms**, **P70 = 36ms**, and **P90 = 47ms**.
+> **Note on 200ms Target:** Vector + BM25 retrieval comfortably beats the 200ms target at **P50 = 22ms**, **P70 = 23ms**, **P90 = 29ms**, and **P100 = 186ms**. Combined with cross-encoder reranking, the total retrieval pipeline runs in just **100ms at P50** and **108ms at P90**.
 
 ## Architecture
 

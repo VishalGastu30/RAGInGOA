@@ -173,10 +173,11 @@ def run_pipeline(
 
     # ── 7. Generation Stage ──
     try:
+        t_gen = time.perf_counter()
         generated = generate_answer(clean_text, ranked)
-        timings["generation"] = _ms(t0, time.perf_counter())
+        timings["generation"] = _ms(t_gen, time.perf_counter())
     except Exception as e:
-        timings["generation"] = _ms(t0, time.perf_counter())
+        timings["generation"] = _ms(t_gen, time.perf_counter())
         timings["total"] = _ms(pipeline_start, time.perf_counter())
         return _error_response(
             f"Generation failed: {str(e)[:150]}",
