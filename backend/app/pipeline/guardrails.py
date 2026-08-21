@@ -6,6 +6,28 @@ from typing import List, Dict, Any, Tuple
 from app.config import RETRIEVAL_SCORE_THRESHOLD
 
 REFUSAL_MESSAGE = "I don't have enough information in the provided dataset to answer that."
+UNSAFE_REFUSAL_MESSAGE = "Request rejected: unsafe or inappropriate content detected."
+
+UNSAFE_KEYWORDS = [
+    "ignore previous instructions", "system prompt", "jailbreak",
+    "hack", "exploit", "malware", "weapon", "violence",
+]
+
+def guardrail_input_safety(query: str) -> Tuple[bool, str]:
+    """
+    Input Guardrail — runs BEFORE retrieval.
+    Checks for unsafe/inappropriate inputs or prompt injection attempts.
+    Returns (passes, reason).
+    """
+    if not query or not query.strip():
+        return False, "Empty query provided."
+
+    lowered = query.lower()
+    for kw in UNSAFE_KEYWORDS:
+        if kw in lowered:
+            return False, f"Unsafe or prompt injection input detected: '{kw}'."
+
+    return True, ""
 
 
 def guardrail_a_retrieval_confidence(

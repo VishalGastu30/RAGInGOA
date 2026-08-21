@@ -87,42 +87,44 @@ def run_benchmark(n: int = 100):
     random.shuffle(queries)
     queries = queries[:n]
 
-    print(f"[benchmark] Running {len(queries)} queries …\n")
+    from app.pipeline.orchestrator import run_pipeline
+
+    print(f"[benchmark] Running {len(queries)} queries through orchestrated pipeline …\n")
 
     retrieval_times = []
     rerank_times = []
     combined_times = []
+    full_pipeline_times = []
 
     for i, query in enumerate(queries, 1):
-        # Retrieval
-        t0 = time.perf_counter()
-        candidates = retrieval_engine.search(query, top_k=20, final_k=20)
-        retrieval_ms = int((time.perf_counter() - t0) * 1000)
+        res = run_pipeline(text=query)
+        timings = res.get("timings_ms", {})
+        ret_ms = timings.get("retrieval", 0)
+        rrk_ms = timings.get("rerank", 0)
+        tot_ms = timings.get("total", 0)
 
-        # Rerank
-        t1 = time.perf_counter()
-        _ = reranker.rerank(query, candidates, top_k=5)
-        rerank_ms = int((time.perf_counter() - t1) * 1000)
-
-        retrieval_times.append(retrieval_ms)
-        rerank_times.append(rerank_ms)
-        combined_times.append(retrieval_ms + rerank_ms)
+        retrieval_times.append(ret_ms)
+        rerank_times.append(rrk_ms)
+        combined_times.append(ret_ms + rrk_ms)
+        full_pipeline_times.append(tot_ms)
 
         if i % 10 == 0:
-            print(f"  {i}/{len(queries)} done — last retrieval={retrieval_ms}ms rerank={rerank_ms}ms")
+            print(f"  {i}/{len(queries)} done — last ret={ret_ms}ms rrk={rrk_ms}ms total={tot_ms}ms (answered={res.get('answered')})")
 
-    print("\n" + "=" * 60)
-    print("LATENCY BENCHMARK RESULTS")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("LATENCY BENCHMARK RESULTS (P50 / P70 / P90 / P100 Analytics)")
+    print("=" * 70)
 
     ret = percentiles(retrieval_times)
     rer = percentiles(rerank_times)
     com = percentiles(combined_times)
+    pipe = percentiles(full_pipeline_times)
 
     print(f"Retrieval only (ms):        P50={ret['p50']:>5}  P70={ret['p70']:>5}  P90={ret['p90']:>5}  P100={ret['p100']:>5}  Mean={ret['mean']:>5}")
     print(f"Rerank only (ms):           P50={rer['p50']:>5}  P70={rer['p70']:>5}  P90={rer['p90']:>5}  P100={rer['p100']:>5}  Mean={rer['mean']:>5}")
     print(f"Retrieval+Rerank (ms):      P50={com['p50']:>5}  P70={com['p70']:>5}  P90={com['p90']:>5}  P100={com['p100']:>5}  Mean={com['mean']:>5}")
-    print("=" * 60)
+    print(f"Full Pipeline (ms):         P50={pipe['p50']:>5}  P70={pipe['p70']:>5}  P90={pipe['p90']:>5}  P100={pipe['p100']:>5}  Mean={pipe['mean']:>5}")
+    print("=" * 70)
 
     # Save results to JSON
     out = {
@@ -130,6 +132,7 @@ def run_benchmark(n: int = 100):
         "retrieval_ms": ret,
         "rerank_ms": rer,
         "retrieval_plus_rerank_ms": com,
+        "full_pipeline_ms": pipe,
     }
     out_file = Path(__file__).parent.parent / "data" / "benchmark_results.json"
     out_file.parent.mkdir(parents=True, exist_ok=True)

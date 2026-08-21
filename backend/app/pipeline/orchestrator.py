@@ -10,9 +10,11 @@ from app.pipeline.semantic_cache import semantic_cache
 from app.pipeline.retrieval import retrieval_engine
 from app.pipeline.rerank import reranker
 from app.pipeline.guardrails import (
+    guardrail_input_safety,
     guardrail_a_retrieval_confidence,
     guardrail_b_grounding_check,
     REFUSAL_MESSAGE,
+    UNSAFE_REFUSAL_MESSAGE,
 )
 from app.pipeline.generation import generate_answer
 from app.db.logging_db import log_query
@@ -61,11 +63,34 @@ def run_pipeline(
             timings=timings,
         )
 
-    # ── 2. Query Processing ──
+    # ── 2. Query Processing & Input Safety Guardrail ──
     clean_text, detected_lang = process_query(transcript)
     if not clean_text:
         timings["total"] = _ms(pipeline_start, time.perf_counter())
         return _error_response("Empty query after processing.", transcript=transcript, timings=timings)
+
+    passes_safety, reason_safety = guardrail_input_safety(clean_text)
+    if not passes_safety:
+        timings["guardrails"] = 1
+        timings["total"] = _ms(pipeline_start, time.perf_counter())
+        log_query(
+            query_text=clean_text,
+            answered=False,
+            refusal_reason=reason_safety,
+            cache_hit=False,
+            answer=UNSAFE_REFUSAL_MESSAGE,
+            sources=[],
+            timings=timings,
+        )
+        return {
+            "transcript": transcript,
+            "answer": UNSAFE_REFUSAL_MESSAGE,
+            "answered": False,
+            "refusal_reason": reason_safety,
+            "sources": [],
+            "cache_hit": False,
+            "timings_ms": timings,
+        }
 
     # ── 3. Semantic Cache Lookup ──
     t0 = time.perf_counter()

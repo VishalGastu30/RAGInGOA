@@ -40,14 +40,17 @@ class Reranker:
             print("[rerank] Indic query detected. Bypassing English cross-encoder, using combined_score.")
             for c in candidates:
                 c["rerank_score"] = c.get("combined_score", 0.0)
+            ranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
+            return ranked[:top_k]
         else:
-            pairs = [(query, c["chunk"]["text"]) for c in candidates]
+            # Sort by combined_score first, take top 5 candidates to minimize CPU cross-encoder latency (<30ms)
+            top_candidates = sorted(candidates, key=lambda x: x.get("combined_score", 0.0), reverse=True)[:5]
+            pairs = [(query, c["chunk"]["text"]) for c in top_candidates]
             scores = self.model.predict(pairs)
-            for i, c in enumerate(candidates):
+            for i, c in enumerate(top_candidates):
                 c["rerank_score"] = float(scores[i])
-
-        ranked = sorted(candidates, key=lambda x: x["rerank_score"], reverse=True)
-        return ranked[:top_k]
+            ranked = sorted(top_candidates, key=lambda x: x["rerank_score"], reverse=True)
+            return ranked[:top_k]
 
 
 # Module-level singleton
