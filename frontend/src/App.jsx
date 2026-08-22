@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Moon, Sun, ArrowRight, Settings2 } from 'lucide-react';
-import MicButton from './components/MicButton';
-import KnowledgeCard from './components/KnowledgeCard';
-import LatencyDashboard from './components/LatencyDashboard';
-import GuardrailLog from './components/GuardrailLog';
+import NavBar from './components/NavBar';
+import HeroOrb from './components/HeroOrb';
+import ChatStream from './components/ChatStream';
+import InputDock from './components/InputDock';
+import TelemetryDrawer from './components/TelemetryDrawer';
+import ThemeTransition from './components/ThemeTransition';
 import { ask, fetchGuardrailLog, fetchLatencyStats } from './api/client';
 
 export default function App() {
@@ -25,19 +26,20 @@ export default function App() {
   const [activeStage, setActiveStage] = useState('');
   const [strictMode, setStrictMode] = useState(true);
   const [activeStrategy, setActiveStrategy] = useState('hybrid');
-  const [inspectedSources, setInspectedSources] = useState(null);
+
   const [theme, setTheme] = useState('theme-cyberpunk');
+  const [isTransitioningTheme, setIsTransitioningTheme] = useState(false);
+  const [themeClickCoords, setThemeClickCoords] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [footerOpen, setFooterOpen] = useState(false);
+  const [telemetryOpen, setTelemetryOpen] = useState(false);
 
   const ignoreNextAudioRef = useRef(false);
-  const chatEndRef = useRef(null);
 
   useEffect(() => {
     try {
       localStorage.setItem('rag_goa_messages', JSON.stringify(messages));
     } catch (e) {
-      // ignore
+      // quota exceeded fallback
     }
   }, [messages]);
 
@@ -47,10 +49,7 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
-
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if ((e.key === 'm' || e.key === 'M') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
@@ -71,8 +70,22 @@ export default function App() {
       if (logData?.logs) setLogs(logData.logs);
       if (statsData) setStats(statsData);
     } catch (e) {
-      // silent fail for polling
+      // background poll fail
     }
+  };
+
+  const handleToggleTheme = (coords) => {
+    const nextTheme = theme === 'theme-cyberpunk' ? 'theme-sunrise' : 'theme-cyberpunk';
+    setThemeClickCoords(coords);
+    setIsTransitioningTheme(true);
+
+    setTimeout(() => {
+      setTheme(nextTheme);
+    }, 200);
+
+    setTimeout(() => {
+      setIsTransitioningTheme(false);
+    }, 650);
   };
 
   const askPipeline = async ({ text, audio_base64 }) => {
@@ -84,13 +97,13 @@ export default function App() {
         userMsgIndex = prev.length;
         return [...prev, { role: 'user', content: '🎤 [Voice Query]' }];
       });
-      setActiveStage('Transcribing audio...');
+      setActiveStage('Transcribing Voice (Sarvam)...');
     } else {
       setMessages((prev) => {
         userMsgIndex = prev.length;
         return [...prev, { role: 'user', content: text }];
       });
-      setActiveStage('Retrieving knowledge...');
+      setActiveStage('Retrieving Passages (Vector + BM25)...');
     }
 
     try {
@@ -103,7 +116,7 @@ export default function App() {
 
         if (res.transcript && audio_base64) {
           setMessages((prev) =>
-            prev.map((msg, i) => i === userMsgIndex ? { ...msg, content: res.transcript } : msg)
+            prev.map((msg, i) => (i === userMsgIndex ? { ...msg, content: res.transcript } : msg))
           );
         }
 
@@ -119,11 +132,11 @@ export default function App() {
             cacheHit: res.cache_hit,
             timings: res.timings_ms,
             timestamp: Date.now(),
-          }
+          },
         ]);
         loadSidebars();
       } else {
-        // Stream Mode (Skipped full implementation for brevity here, acts same as old App.jsx stream)
+        // Stream Mode
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
         const response = await fetch(`${BACKEND_URL}/api/ask-stream`, {
           method: 'POST',
@@ -135,11 +148,11 @@ export default function App() {
           }),
         });
 
-        if (!response.ok) throw new Error(`HTTP error!`);
-        
-        // standard stream reading loop
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
+
         let assistantAnswer = '';
         let assistantSources = [];
         let finalTimings = null;
@@ -147,13 +160,21 @@ export default function App() {
 
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: '', answered: true, sources: [], timings: null, timestamp: Date.now() }
+          {
+            role: 'assistant',
+            content: '',
+            answered: true,
+            sources: [],
+            timings: null,
+            timestamp: Date.now(),
+          },
         ]);
 
         let buffer = '';
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
+
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
@@ -166,13 +187,18 @@ export default function App() {
               try {
                 const chunk = JSON.parse(dataStr);
                 if (chunk.transcript && audio_base64) {
-                  setMessages(prev => prev.map((msg, i) => i === userMsgIndex ? { ...msg, content: chunk.transcript } : msg));
+                  setMessages((prev) =>
+                    prev.map((msg, i) =>
+                      i === userMsgIndex ? { ...msg, content: chunk.transcript } : msg
+                    )
+                  );
                 }
                 if (chunk.token || chunk.answer_chunk) {
                   assistantAnswer += chunk.token || chunk.answer_chunk;
-                  setMessages(prev => {
+                  setMessages((prev) => {
                     const newMsgs = [...prev];
-                    newMsgs[newMsgs.length - 1].content = assistantAnswer;
+                    const last = newMsgs[newMsgs.length - 1];
+                    last.content = assistantAnswer;
                     return newMsgs;
                   });
                 }
@@ -180,14 +206,20 @@ export default function App() {
                 if (chunk.timings_ms) finalTimings = chunk.timings_ms;
                 if (chunk.refusal_reason) refusalReason = chunk.refusal_reason;
                 if (chunk.answered !== undefined) {
-                  setMessages(prev => {
+                  const answeredVal = chunk.answered;
+                  setMessages((prev) => {
                     const newMsgs = [...prev];
-                    newMsgs[newMsgs.length - 1].answered = chunk.answered;
-                    if (!chunk.answered && refusalReason) newMsgs[newMsgs.length - 1].content = refusalReason;
+                    const last = newMsgs[newMsgs.length - 1];
+                    last.answered = answeredVal;
+                    if (!answeredVal && refusalReason) {
+                      last.content = refusalReason;
+                    }
                     return newMsgs;
                   });
                 }
-              } catch (e) {}
+              } catch (e) {
+                // chunk parse error
+              }
             }
           }
         }
@@ -195,204 +227,176 @@ export default function App() {
         if (finalTimings) setLastTimings(finalTimings);
         setMessages((prev) => {
           const newMsgs = [...prev];
-          newMsgs[newMsgs.length - 1].sources = assistantSources;
-          newMsgs[newMsgs.length - 1].timings = finalTimings;
+          const last = newMsgs[newMsgs.length - 1];
+          last.sources = assistantSources;
+          last.timings = finalTimings;
           return newMsgs;
         });
         loadSidebars();
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${err.message}`, answered: false }]);
+      console.error(err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `Error connecting to pipeline: ${err.message}`,
+          answered: false,
+          timestamp: Date.now(),
+        },
+      ]);
     } finally {
       setLoading(false);
       setActiveStage('');
     }
   };
 
-  const handleSendText = async (textToSend) => {
-    const query = textToSend || inputText;
+  const handleSendText = async (textOverride) => {
+    const query = textOverride || inputText;
     if (!query.trim() || loading) return;
+
     if (isRecording) {
       ignoreNextAudioRef.current = true;
       setIsRecording(false);
     }
+
     setInputText('');
     await askPipeline({ text: query });
   };
 
-  const sampleQueries = [
-    'What is a corporation?',
-    'निगम क्या होता है?',
-    'Who won the 2024 ICC T20 World Cup?'
-  ];
+  const handleAudioRecorded = async (base64Audio) => {
+    if (ignoreNextAudioRef.current) {
+      ignoreNextAudioRef.current = false;
+      return;
+    }
+    if (loading) return;
+
+    await askPipeline({ audio_base64: base64Audio });
+  };
+
+  const handleTranslateMessage = async (msgIndex) => {
+    const msg = messages[msgIndex];
+    if (!msg || !msg.content || loading) return;
+
+    setLoading(true);
+    setActiveStage('Translating Hindi/Marathi to English...');
+
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+      const response = await fetch(`${BACKEND_URL}/api/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: msg.content }),
+      });
+      if (!response.ok) throw new Error('Translation API failed');
+      const data = await response.json();
+
+      setMessages((prev) =>
+        prev.map((m, i) =>
+          i === msgIndex
+            ? {
+                ...m,
+                originalContent: m.originalContent || m.content,
+                content: data.translated,
+                isTranslated: !m.isTranslated,
+              }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert('Translation failed');
+    } finally {
+      setLoading(false);
+      setActiveStage('');
+    }
+  };
+
+  const handleClearHistory = () => {
+    setMessages([]);
+    localStorage.removeItem('rag_goa_messages');
+    setLastTimings(null);
+  };
 
   return (
     <div className={`app-layout ${theme}`}>
-      {/* Top Navigation */}
-      <nav className="top-nav">
-        <div className="nav-left">
-          <div className="nav-title">RAGInGOA</div>
-          <div className="nav-subtitle glass-btn" style={{ cursor: 'default' }}>HH Goa 2026</div>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="glass-btn" onClick={() => setStrictMode(!strictMode)} title="Toggle Guardrails">
-            <Settings2 size={18} color={strictMode ? 'var(--accent-primary)' : 'var(--text-muted)'} />
-          </button>
-          <button 
-            className="glass-btn" 
-            onClick={() => setTheme(theme === 'theme-cyberpunk' ? 'theme-sunrise' : 'theme-cyberpunk')}
-          >
-            {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </div>
-      </nav>
+      {/* Ambient Decorative Blob */}
+      <div className="ambient-blob-secondary" />
 
-      {/* Main Content Area */}
-      <main className="main-content-area">
-        <AnimatePresence mode="popLayout">
+      {/* Radial Wipe Theme Transition Portal */}
+      <ThemeTransition
+        isTransitioning={isTransitioningTheme}
+        clickCoords={themeClickCoords}
+        newTheme={theme}
+      />
+
+      {/* Top Navigation Bar */}
+      <NavBar
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        strictMode={strictMode}
+        setStrictMode={setStrictMode}
+        activeStrategy={activeStrategy}
+        setActiveStrategy={setActiveStrategy}
+        onToggleTelemetry={() => setTelemetryOpen(!telemetryOpen)}
+        telemetryOpen={telemetryOpen}
+        onClearHistory={handleClearHistory}
+        hasMessages={messages.length > 0}
+      />
+
+      {/* Scrollable Center Area */}
+      <main className="main-content">
+        <AnimatePresence mode="wait">
           {messages.length === 0 ? (
-            <motion.div 
-              key="hero"
-              className="hero-wrapper"
+            <HeroOrb
+              key="hero-orb"
+              onAudioRecorded={handleAudioRecorded}
+              onDictationUpdate={(text) => setInputText(text)}
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              disabled={loading}
+              onSelectPrompt={(text) => handleSendText(text)}
+            />
+          ) : (
+            <motion.div
+              key="chat-stream"
+              style={{ width: '100%', display: 'flex', justifyContent: 'center' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <MicButton
-                onAudioRecorded={(audio) => askPipeline({ audio_base64: audio })}
-                onDictationUpdate={setInputText}
-                isRecording={isRecording}
-                setIsRecording={setIsRecording}
-                disabled={loading}
+              <ChatStream
+                messages={messages}
+                loading={loading}
+                activeStage={activeStage}
+                onTranslateMessage={handleTranslateMessage}
               />
-              
-              <div className="chat-input-wrapper">
-                <input 
-                  type="text"
-                  className="pro-input"
-                  placeholder="Ask me anything, in English or Hindi..."
-                  value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                />
-                <button 
-                  className="send-icon-btn" 
-                  onClick={() => handleSendText()} 
-                  disabled={!inputText.trim() || loading}
-                >
-                  <ArrowRight size={18} />
-                </button>
-              </div>
-
-              <div className="chips-row">
-                {sampleQueries.map((q, i) => (
-                  <div key={i} className="chip-pro" onClick={() => handleSendText(q)}>
-                    {q}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div 
-              key="stream"
-              className="conversation-stream"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              {/* Sticky Mic for subsequent queries */}
-              <div className="hero-wrapper" style={{ marginBottom: '32px' }}>
-                <div style={{ transform: 'scale(0.8)' }}>
-                  <MicButton
-                    onAudioRecorded={(audio) => askPipeline({ audio_base64: audio })}
-                    onDictationUpdate={setInputText}
-                    isRecording={isRecording}
-                    setIsRecording={setIsRecording}
-                    disabled={loading}
-                  />
-                </div>
-                <div className="chat-input-wrapper">
-                  <input 
-                    type="text"
-                    className="pro-input"
-                    placeholder="Ask a follow up..."
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                  />
-                  <button 
-                    className="send-icon-btn" 
-                    onClick={() => handleSendText()} 
-                    disabled={!inputText.trim() || loading}
-                  >
-                    <ArrowRight size={18} />
-                  </button>
-                </div>
-              </div>
-
-              {messages.map((msg, idx) => (
-                <motion.div 
-                  key={idx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`message-bubble ${msg.role === 'user' ? 'message-user' : 'message-assistant'}`}
-                >
-                  {msg.role === 'assistant' && msg.cacheHit && (
-                    <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginBottom: '8px', fontWeight: '700' }}>
-                      ⚡ FAST CACHE HIT
-                    </div>
-                  )}
-                  {msg.content}
-                  
-                  {msg.sources && msg.sources.length > 0 && (
-                    <div className="sources-grid">
-                      {msg.sources.map((src, sIdx) => (
-                        <KnowledgeCard 
-                          key={sIdx}
-                          source={src}
-                          index={sIdx}
-                          isInspected={inspectedSources?.chunk_id === src.chunk_id}
-                          onClick={() => setInspectedSources(src)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              ))}
-
-              {loading && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="message-bubble message-assistant">
-                  <span style={{ opacity: 0.5 }}>{activeStage || 'Processing...'}</span>
-                </motion.div>
-              )}
-              <div ref={chatEndRef} />
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Telemetry Footer */}
-      <footer className="telemetry-footer">
-        <div className="nav-left">
-          <div className="telemetry-pill">
-            <div className="live-dot" /> LIVE
-          </div>
-          <button className="glass-btn" onClick={() => setMessages([])} style={{ fontSize: '11px' }}>
-            CLEAR CHAT
-          </button>
-        </div>
-        <button className="glass-btn" onClick={() => setFooterOpen(!footerOpen)} style={{ fontSize: '11px' }}>
-          {footerOpen ? 'CLOSE TELEMETRY' : 'VIEW TELEMETRY'}
-        </button>
-      </footer>
-      
-      {footerOpen && (
-        <div className="glass-panel" style={{ position: 'absolute', bottom: '80px', left: '20px', right: '20px', height: '400px', display: 'flex', gap: '20px', padding: '20px', zIndex: 90 }}>
-          <div style={{ flex: 1, overflowY: 'auto' }}><LatencyDashboard timings={lastTimings} stats={stats} /></div>
-          <div style={{ flex: 1, overflowY: 'auto' }}><GuardrailLog logs={logs} /></div>
-        </div>
-      )}
+      {/* Command Center Fixed Bottom Input Dock */}
+      <InputDock
+        inputText={inputText}
+        setInputText={setInputText}
+        onSendText={handleSendText}
+        onAudioRecorded={handleAudioRecorded}
+        onDictationUpdate={(text) => setInputText(text)}
+        isRecording={isRecording}
+        setIsRecording={setIsRecording}
+        loading={loading}
+      />
+
+      {/* Telemetry Slide-Up Modal Drawer */}
+      <TelemetryDrawer
+        isOpen={telemetryOpen}
+        onClose={() => setTelemetryOpen(false)}
+        timings={lastTimings}
+        stats={stats}
+        logs={logs}
+      />
     </div>
   );
 }

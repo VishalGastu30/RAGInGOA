@@ -3,9 +3,9 @@ import React from 'react';
 export default function GuardrailLog({ logs }) {
   if (!logs || logs.length === 0) {
     return (
-      <div className="card">
-        <div className="card-title">[LIVE GUARDRAIL TRACE]</div>
-        <div className="no-logs">No decisions logged yet</div>
+      <div className="telemetry-card">
+        <div className="telemetry-card-title">LIVE GUARDRAIL TRACE</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>No guardrail decisions logged yet</div>
       </div>
     );
   }
@@ -17,8 +17,8 @@ export default function GuardrailLog({ logs }) {
   };
 
   return (
-    <div className="card" style={{ maxHeight: '280px', overflowY: 'auto' }}>
-      <div className="card-title">[LIVE GUARDRAIL TRACE]</div>
+    <div className="telemetry-card">
+      <div className="telemetry-card-title">LIVE GUARDRAIL TRACE</div>
       {logs.map((log) => {
         const typeClass = log.cache_hit
           ? 'cached'
@@ -41,15 +41,15 @@ export default function GuardrailLog({ logs }) {
                 <span className="log-time">{formatTimestamp(log.timestamp)}</span>
               )}
             </div>
-            <div className="log-meta">
-              <span className={`log-status ${typeClass}`}>{label}</span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+              <span className={`log-status-tag ${typeClass}`}>{label}</span>
               {log.top_retrieval_score != null && (
-                <span className="log-score-badge">
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--accent-cyan)' }}>
                   SCORE: {Math.round(log.top_retrieval_score * 100)}%
                 </span>
               )}
               {log.refusal_reason && (
-                <span style={{ color: 'var(--accent-rose)', fontSize: '11px' }}>
+                <span style={{ color: 'var(--accent-rose)', fontSize: 10 }}>
                   {log.refusal_reason}
                 </span>
               )}

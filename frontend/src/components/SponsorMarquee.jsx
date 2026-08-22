@@ -13,21 +13,17 @@ const SPONSORS = [
 ];
 
 export default function SponsorMarquee() {
-  // Duplicate array for seamless infinite scroll loop
   const doubleSponsors = [...SPONSORS, ...SPONSORS];
 
   return (
-    <div className="sponsor-marquee-wrapper">
-      <div className="sponsor-marquee-title">SUPPORTING ECOSYSTEM & SPONSORS</div>
-      <div className="sponsor-marquee-track-outer">
-        <div className="sponsor-marquee-track">
-          {doubleSponsors.map((sponsor, idx) => (
-            <div key={idx} className="sponsor-card">
-              <img src={sponsor.logo} alt={sponsor.name} className="sponsor-logo" />
-              <span className="sponsor-name">{sponsor.name}</span>
-            </div>
-          ))}
-        </div>
+    <div className="sponsor-strip-fixed">
+      <div className="sponsor-track">
+        {doubleSponsors.map((sponsor, idx) => (
+          <div key={idx} className="sponsor-pill">
+            <img src={sponsor.logo} alt={sponsor.name} className="sponsor-logo-img" />
+            <span>{sponsor.name}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
