@@ -44,3 +44,6 @@ RERANKER_MODEL_NAME = os.getenv(
     "RERANKER_MODEL_NAME", "cross-encoder/ms-marco-MiniLM-L-6-v2"
 )
 GROQ_MODEL_NAME = os.getenv("GROQ_MODEL_NAME", "llama-3.3-70b-versatile")
+
+# Database
+DATABASE_URL = os.getenv("DATABASE_URL")
