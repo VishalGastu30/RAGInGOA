@@ -18,19 +18,30 @@ from app.config import BACKEND_PORT
 from app.pipeline.stt import transcribe as stt_transcribe
 import time
 
+import asyncio
+
+def load_heavy_models():
+    try:
+        print("[startup] Initialising database …")
+        init_db()
+        print("[startup] Loading retrieval engine …")
+        retrieval_engine.load()
+        print("[startup] Loading reranker …")
+        reranker.load()
+        print("[startup] All models loaded — ready to serve.")
+    except Exception as e:
+        print(f"[startup] Error loading models: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load heavy models once at startup."""
-    print("[startup] Initialising database …")
-    init_db()
-    print("[startup] Loading retrieval engine …")
-    retrieval_engine.load()
-    print("[startup] Loading reranker …")
-    reranker.load()
-    print("[startup] All models loaded — ready to serve.")
+    """Load heavy models once at startup in the background."""
+    # We load them in a separate thread so it doesn't block the event loop
+    # and allows uvicorn to bind to the port immediately for Render.
+    asyncio.create_task(asyncio.to_thread(load_heavy_models))
     yield
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 app = FastAPI(
     title="Voice RAG — HH Goa 2026",
@@ -38,6 +49,18 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+@app.exception_handler(RuntimeError)
+async def runtime_error_handler(request: Request, exc: RuntimeError):
+    if "not loaded" in str(exc):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Models are still loading in the background. Please try again in a few seconds."},
+        )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
 
 app.add_middleware(
     CORSMiddleware,
