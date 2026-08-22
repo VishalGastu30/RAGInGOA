@@ -2,11 +2,10 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables — override=True ensures hot-reload picks up .env changes
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR.parent / ".env")
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR.parent / ".env", override=True)
+load_dotenv(BASE_DIR / ".env", override=True)
 
 # API Keys
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")

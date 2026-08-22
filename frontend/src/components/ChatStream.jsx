@@ -25,7 +25,11 @@ export default function ChatStream({
   };
 
   const toggleSources = (msgIdx) => {
-    setExpandedSources((prev) => ({ ...prev, [msgIdx]: !prev[msgIdx] }));
+    setExpandedSources((prev) => {
+      const isMobile = window.innerWidth < 768;
+      const current = prev[msgIdx] !== undefined ? prev[msgIdx] : !isMobile;
+      return { ...prev, [msgIdx]: !current };
+    });
   };
 
   const detectDevanagari = (text) => {
@@ -38,7 +42,8 @@ export default function ChatStream({
         {messages.map((msg, index) => {
           const isUser = msg.role === 'user';
           const isDevanagari = detectDevanagari(msg.content);
-          const showSources = expandedSources[index] !== false; // Default expanded
+          const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+          const showSources = expandedSources[index] !== undefined ? expandedSources[index] : !isMobile;
 
           return (
             <motion.div
@@ -56,7 +61,7 @@ export default function ChatStream({
                 <div className="chat-bubble-assistant">
                   <div className="assistant-meta-header">
                     <span>SYSTEM ASSISTANT</span>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       {msg.cacheHit && (
                         <span className="badge-cache-hit">
                           <Zap size={11} /> CACHE HIT (&lt;10ms)
@@ -90,7 +95,7 @@ export default function ChatStream({
                         onClick={() => onTranslateMessage(index)}
                       >
                         <Globe size={12} />
-                        {msg.isTranslated ? 'SHOW HINDI' : 'TRANSLATE TO ENGLISH'}
+                        {msg.isTranslated ? 'SHOW HINDI' : 'TRANSLATE'}
                       </button>
                     )}
 
@@ -101,7 +106,7 @@ export default function ChatStream({
                         onClick={() => toggleSources(index)}
                       >
                         <Layers size={12} />
-                        {showSources ? 'HIDE SOURCES' : `VIEW SOURCES (${msg.sources.length})`}
+                        {showSources ? 'HIDE SOURCES' : `SOURCES (${msg.sources.length})`}
                       </button>
                     )}
                   </div>

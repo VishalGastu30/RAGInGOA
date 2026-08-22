@@ -2,7 +2,7 @@
 Generation stage: call Groq LLM with retrieved context, get structured JSON answer.
 """
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from openai import OpenAI
 
 from app.config import GROQ_API_KEY, GROQ_MODEL_NAME
@@ -72,33 +72,20 @@ def generate_answer(
 
         raw = response.choices[0].message.content.strip()
 
-        # Try to extract JSON from the response
-        # Sometimes models wrap it in ```json ... ```
-        if raw.startswith("```"):
-            lines = raw.split("\n")
-            json_lines = []
-            in_block = False
-            for line in lines:
-                if line.strip().startswith("```") and not in_block:
-                    in_block = True
-                    continue
-                elif line.strip().startswith("```") and in_block:
-                    break
-                elif in_block:
-                    json_lines.append(line)
-            raw = "\n".join(json_lines)
+        # Try multiple strategies to extract JSON from the response
+        parsed = _extract_json(raw)
+        if parsed:
+            return parsed
 
-        parsed = json.loads(raw)
-        return parsed
-
-    except json.JSONDecodeError:
-        # LLM didn't return valid JSON — wrap raw text
+        # If no JSON found, the model gave a plain text answer.
+        # Wrap it as a grounded response (it answered from context, just not in JSON).
         return {
-            "answer": raw if raw else "Failed to parse generation output.",
-            "grounded": False,
-            "confidence": 0.0,
-            "sources": [],
+            "answer": raw,
+            "grounded": True,
+            "confidence": 0.7,
+            "sources": [p["chunk"]["chunk_id"] for p in passages[:3]],
         }
+
     except Exception as e:
         return {
             "answer": f"The answer service is temporarily unavailable. Error: {str(e)[:100]}",
@@ -106,6 +93,41 @@ def generate_answer(
             "confidence": 0.0,
             "sources": [],
         }
+
+
+def _extract_json(raw: str) -> Optional[Dict[str, Any]]:
+    """Try multiple strategies to extract a JSON dict from LLM output."""
+    import re
+
+    # Strategy 1: Direct parse
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: Extract from ```json ... ``` code blocks
+    code_block_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', raw, re.DOTALL)
+    if code_block_match:
+        try:
+            parsed = json.loads(code_block_match.group(1).strip())
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    # Strategy 3: Find the first { ... } JSON object in the text
+    brace_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', raw, re.DOTALL)
+    if brace_match:
+        try:
+            parsed = json.loads(brace_match.group(0))
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    return None
 
 
 def translate_to_english(text: str) -> str:

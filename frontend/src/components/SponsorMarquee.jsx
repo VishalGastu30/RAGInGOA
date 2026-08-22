@@ -13,17 +13,25 @@ const SPONSORS = [
 ];
 
 export default function SponsorMarquee() {
-  const doubleSponsors = [...SPONSORS, ...SPONSORS];
-
   return (
     <div className="sponsor-strip-fixed">
       <div className="sponsor-track">
-        {doubleSponsors.map((sponsor, idx) => (
-          <div key={idx} className="sponsor-pill">
-            <img src={sponsor.logo} alt={sponsor.name} className="sponsor-logo-img" />
-            <span>{sponsor.name}</span>
-          </div>
-        ))}
+        <div className="sponsor-track-group">
+          {SPONSORS.map((sponsor, idx) => (
+            <div key={idx} className="sponsor-pill">
+              <img src={sponsor.logo} alt={sponsor.name} className="sponsor-logo-img" />
+              <span>{sponsor.name}</span>
+            </div>
+          ))}
+        </div>
+        <div className="sponsor-track-group" aria-hidden="true">
+          {SPONSORS.map((sponsor, idx) => (
+            <div key={`dup-${idx}`} className="sponsor-pill">
+              <img src={sponsor.logo} alt={sponsor.name} className="sponsor-logo-img" />
+              <span>{sponsor.name}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

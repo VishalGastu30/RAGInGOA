@@ -1,5 +1,5 @@
-import React from 'react';
-import { Shield, ShieldAlert, Sun, Moon, Activity, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, ShieldAlert, Sun, Moon, Activity, Trash2, Menu, X, Layers } from 'lucide-react';
 
 export default function NavBar({
   theme,
@@ -13,6 +13,8 @@ export default function NavBar({
   onClearHistory,
   hasMessages,
 }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   const handleThemeClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const coords = {
@@ -33,7 +35,7 @@ export default function NavBar({
         <span className="nav-badge">TASK 2</span>
       </div>
 
-      {/* Tech Status Pills */}
+      {/* Desktop Tech Status Pills */}
       <div className="nav-status-pills">
         <span className="pill-tech">FAISS · 384d</span>
         <span className="pill-tech">Sarvam Saaras v3</span>
@@ -44,7 +46,8 @@ export default function NavBar({
         </span>
       </div>
 
-      <div className="nav-actions">
+      {/* Desktop Actions */}
+      <div className="nav-actions desktop-only-actions">
         {/* Strategy Selector */}
         <div className="strategy-segmented" title="Chunking & Retrieval Strategy">
           {['hybrid', 'semantic', 'small'].map((strat) => (
@@ -101,6 +104,126 @@ export default function NavBar({
           {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </div>
+
+      {/* Mobile Hamburger Toggle */}
+      <button
+        type="button"
+        className="mobile-hamburger-btn"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        aria-label="Toggle Navigation Menu"
+      >
+        {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+      </button>
+
+      {/* Mobile Dropdown Panel */}
+      {mobileMenuOpen && (
+        <div className="mobile-dropdown-menu">
+          {/* Strategy Selection */}
+          <div className="mobile-menu-section">
+            <div className="mobile-section-label">
+              <Layers size={13} />
+              <span>RETRIEVAL STRATEGY</span>
+            </div>
+            <div className="mobile-strategy-group">
+              {['hybrid', 'semantic', 'small'].map((strat) => (
+                <button
+                  key={strat}
+                  type="button"
+                  className={`mobile-strat-btn ${activeStrategy === strat ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveStrategy(strat);
+                  }}
+                >
+                  {strat.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions List */}
+          <div className="mobile-menu-actions">
+            <button
+              type="button"
+              className={`mobile-action-row ${strictMode ? 'active' : ''}`}
+              onClick={() => setStrictMode(!strictMode)}
+            >
+              <div className="mobile-action-icon">
+                {strictMode ? <Shield size={18} /> : <ShieldAlert size={18} color="var(--accent-amber)" />}
+              </div>
+              <div className="mobile-action-text">
+                <span className="mobile-action-title">Cross-Lingual Guardrails</span>
+                <span className="mobile-action-sub">{strictMode ? 'STRICT GUARDRAILS ON' : 'OFF'}</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`mobile-action-row ${telemetryOpen ? 'active' : ''}`}
+              onClick={() => {
+                onToggleTelemetry();
+                setMobileMenuOpen(false);
+              }}
+            >
+              <div className="mobile-action-icon">
+                <Activity size={18} />
+              </div>
+              <div className="mobile-action-text">
+                <span className="mobile-action-title">Pipeline Telemetry</span>
+                <span className="mobile-action-sub">View live latencies & stats</span>
+              </div>
+            </button>
+
+            {hasMessages && (
+              <button
+                type="button"
+                className="mobile-action-row"
+                onClick={() => {
+                  onClearHistory();
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <div className="mobile-action-icon">
+                  <Trash2 size={18} />
+                </div>
+                <div className="mobile-action-text">
+                  <span className="mobile-action-title">Clear Chat History</span>
+                  <span className="mobile-action-sub">Reset conversation</span>
+                </div>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="mobile-action-row"
+              onClick={(e) => {
+                handleThemeClick(e);
+                setMobileMenuOpen(false);
+              }}
+            >
+              <div className="mobile-action-icon">
+                {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
+              </div>
+              <div className="mobile-action-text">
+                <span className="mobile-action-title">Theme Mode</span>
+                <span className="mobile-action-sub">
+                  {theme === 'theme-cyberpunk' ? 'Switch to Vibrant Sunrise' : 'Switch to Cyberpunk Dark'}
+                </span>
+              </div>
+            </button>
+          </div>
+
+          {/* Tech Pills Footer */}
+          <div className="mobile-tech-footer">
+            <span className="pill-tech">FAISS · 384d</span>
+            <span className="pill-tech">Sarvam Saaras v3</span>
+            <span className="pill-tech">BM25 Hybrid</span>
+            <span className="pill-tech live-indicator">
+              <span className="live-dot-pulse" />
+              Backend Live
+            </span>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

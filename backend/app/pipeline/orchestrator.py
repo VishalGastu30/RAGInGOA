@@ -211,6 +211,31 @@ def run_pipeline(
         )
 
     # ── 8. Guardrail B — Grounding Check ──
+    # Skip grounding check if generation itself failed (API error / no key)
+    # — confidence 0.0 with grounded=False means an API-level failure, not a grounding issue.
+    if generated.get("confidence", 1.0) == 0.0 and not generated.get("grounded", True):
+        timings["guardrails"] = _ms(t_guard_start, time.perf_counter())
+        timings["total"] = _ms(pipeline_start, time.perf_counter())
+        error_answer = generated.get("answer", "Generation failed.")
+        log_query(
+            query_text=clean_text,
+            answered=False,
+            refusal_reason=f"Generation API error: {error_answer[:100]}",
+            cache_hit=False,
+            answer=error_answer,
+            sources=[],
+            timings=timings,
+        )
+        return {
+            "transcript": transcript,
+            "answer": error_answer,
+            "answered": False,
+            "refusal_reason": f"Generation API error",
+            "sources": [],
+            "cache_hit": False,
+            "timings_ms": timings,
+        }
+
     passes_b, reason_b = guardrail_b_grounding_check(generated)
     timings["guardrails"] = _ms(t_guard_start, time.perf_counter())
 

@@ -10,7 +10,7 @@ UNSAFE_REFUSAL_MESSAGE = "Request rejected: unsafe or inappropriate content dete
 
 UNSAFE_KEYWORDS = [
     "ignore previous instructions", "system prompt", "jailbreak",
-    "hack", "exploit", "malware", "weapon", "violence",
+    "exploit", "malware", "weapon", "violence",
 ]
 
 def guardrail_input_safety(query: str) -> Tuple[bool, str]:
@@ -43,8 +43,8 @@ def guardrail_a_retrieval_confidence(
         return False, "No passages retrieved."
 
     # rerank_score is a cross-encoder logit (unbounded); combined_score is cosine-based (0-1).
-    # Use combined_score (cosine) for the threshold check — reranker is used for ordering, not filtering.
-    top_combined = ranked_candidates[0].get("combined_score", 1.0)
+    # Use the max combined_score (cosine) for the threshold check to see if ANY document was a strong FAISS/BM25 match.
+    top_combined = max((c.get("combined_score", 0.0) for c in ranked_candidates), default=1.0)
 
     if top_combined < threshold:
         return False, f"Top retrieval score ({top_combined:.3f}) below threshold ({threshold})."

@@ -16,6 +16,34 @@ export default function InputDock({
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recognitionRef = useRef(null);
+  const [viewportBottomOffset, setViewportBottomOffset] = useState(0);
+
+  // Keyboard offset handling via visualViewport API
+  useEffect(() => {
+    if (!window.visualViewport) return;
+
+    const handleVisualViewportResize = () => {
+      const vv = window.visualViewport;
+      const offset = window.innerHeight - vv.height - vv.offsetTop;
+      setViewportBottomOffset(Math.max(0, offset));
+    };
+
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    window.visualViewport.addEventListener('scroll', handleVisualViewportResize);
+
+    return () => {
+      window.visualViewport.removeEventListener('resize', handleVisualViewportResize);
+      window.visualViewport.removeEventListener('scroll', handleVisualViewportResize);
+    };
+  }, []);
+
+  // Auto-resize textarea height
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+    }
+  }, [inputText]);
 
   useEffect(() => {
     if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -105,7 +133,12 @@ export default function InputDock({
   };
 
   return (
-    <div className="input-dock-fixed">
+    <div
+      className="input-dock-fixed"
+      style={{
+        transform: viewportBottomOffset > 0 ? `translateY(-${viewportBottomOffset}px)` : 'none',
+      }}
+    >
       {/* Sponsor Marquee Strip */}
       <SponsorMarquee />
 
@@ -133,7 +166,7 @@ export default function InputDock({
           <textarea
             ref={textareaRef}
             className="dock-textarea"
-            placeholder="Ask anything in English, Hindi, or Marathi... (Press Enter to send)"
+            placeholder="Ask in English, Hindi, Hinglish..."
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}

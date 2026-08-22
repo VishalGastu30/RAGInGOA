@@ -15,7 +15,23 @@ export default function HeroOrb({
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recognitionRef = useRef(null);
+  const orbRef = useRef(null);
   const [activeStream, setActiveStream] = useState(null);
+  const [orbSize, setOrbSize] = useState(280);
+
+  useEffect(() => {
+    if (!orbRef.current) return;
+    const updateSize = () => {
+      if (orbRef.current) {
+        const w = orbRef.current.clientWidth;
+        if (w > 0) setOrbSize(w);
+      }
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(orbRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -118,8 +134,8 @@ export default function HeroOrb({
       exit={{ opacity: 0, scale: 0.9, y: -30 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
-      <div className="orb-wrapper">
-        <AudioVisualizer isRecording={isRecording} stream={activeStream} theme={theme} width={280} height={280} />
+      <div className="orb-wrapper" ref={orbRef}>
+        <AudioVisualizer isRecording={isRecording} stream={activeStream} theme={theme} width={orbSize} height={orbSize} />
         
         <button
           type="button"
@@ -128,11 +144,11 @@ export default function HeroOrb({
           disabled={disabled}
           title={isRecording ? 'Click to stop recording' : 'Click to speak or press M'}
         >
-          {isRecording ? <Square size={38} fill="#FFFFFF" /> : <Mic size={48} />}
+          {isRecording ? <Square size={32} fill="#FFFFFF" /> : <Mic size={40} />}
         </button>
       </div>
 
-      <div>
+      <div className="hero-text-block">
         <h1 className="hero-tagline">Voice-Enabled Indic RAG</h1>
         <p className="hero-subtext">
           Ask questions in English, Hindi, or Hinglish. Powered by FAISS Vector Retrieval, Sarvam Voice STT, and Groq LLM.

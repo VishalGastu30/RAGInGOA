@@ -11,17 +11,27 @@ export default function KnowledgeCard({ source, index, isSelected, onClick }) {
   const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['7deg', '-7deg']);
   const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-7deg', '7deg']);
 
-  const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+  const updateCoordinates = (clientX, clientY, currentTarget) => {
+    const rect = currentTarget.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    x.set(mouseX / width - 0.5);
-    y.set(mouseY / height - 0.5);
+    const posX = clientX - rect.left;
+    const posY = clientY - rect.top;
+    x.set(posX / width - 0.5);
+    y.set(posY / height - 0.5);
   };
 
-  const handleMouseLeave = () => {
+  const handleMouseMove = (e) => {
+    updateCoordinates(e.clientX, e.clientY, e.currentTarget);
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      updateCoordinates(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget);
+    }
+  };
+
+  const handleResetTilt = () => {
     x.set(0);
     y.set(0);
   };
@@ -33,7 +43,9 @@ export default function KnowledgeCard({ source, index, isSelected, onClick }) {
       className={`knowledge-card-3d ${isSelected ? 'selected' : ''}`}
       style={{ rotateX, rotateY }}
       onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      onMouseLeave={handleResetTilt}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleResetTilt}
       onClick={onClick}
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
