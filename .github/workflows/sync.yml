@@ -16,5 +16,5 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # Replace 'YOUR_HF_USERNAME' with your actual Hugging Face username if it's not VishalGastu30
-          git push --force https://VishalGastu30:$HF_TOKEN@huggingface.co/spaces/VishalGastu30/ragingoa-backend main
+          git push --force https://OmnipotentFool:$HF_TOKEN@huggingface.co/spaces/VishalGastu30/ragingoa-backend main
 
