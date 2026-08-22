@@ -22,19 +22,16 @@ git push origin main
    - **Space Hardware**: **Free** (2 vCPU, 16GB RAM).
 4. Click **Create Space**.
 
-### Step 3: Link your GitHub Repository
-Now we need to pull your code into the Space.
-1. Once your Space is created, go to the **Settings** tab.
-2. Scroll down to **Variables and secrets**. This is where we will put your `.env` keys.
-3. Add the following **New Secrets**:
-   - `GROQ_API_KEY`: Your Groq API Key
-   - `SARVAM_API_KEY`: Your Sarvam API Key
-   - `DATABASE_URL`: Your Neon PostgreSQL Connection String
-4. Scroll back to the top of the **Settings** tab and look for **Build from GitHub**.
-5. Connect your GitHub account (if not already connected) and select your `RAGInGOA` repository. 
-6. Select the `main` branch.
-7. Click **Deploy**.
+### Step 3: Link your GitHub Repository (Using GitHub Actions)
+Hugging Face recently removed the "Build from GitHub" button, so we will use a **GitHub Action** to automatically deploy your code from GitHub to Hugging Face whenever you push!
 
+1. Go to your [Hugging Face Settings -> Access Tokens](https://huggingface.co/settings/tokens).
+2. Create a new token with **Write** access and copy it.
+3. Go to your **GitHub Repository** -> **Settings** -> **Secrets and variables** -> **Actions**.
+4. Click **New repository secret**. 
+5. Name it `HF_TOKEN` and paste your Hugging Face token as the value.
+
+Once you have done that, I will generate a GitHub Action file for you that will automatically sync your GitHub code to Hugging Face. Let me know when you have added the `HF_TOKEN` secret to GitHub!
 Hugging Face will automatically find the `Dockerfile` we created, build the image, and start your FastAPI server! You can click on the "Logs" button to watch it install the dependencies and download the ML models.
 
 ### Step 4: Update the Frontend
