@@ -18,5 +18,5 @@ jobs:
           # Install huggingface_hub
           pip install huggingface_hub
           
-          # Upload the entire repository to the Space, bypassing Git LFS binary history errors
-          huggingface-cli upload OmnipotentFool/ragingoa-backend . --repo-type space --commit-message "Sync from GitHub"
+          # Upload the entire repository to the Space using the new hf CLI, bypassing Git LFS binary history errors
+          hf upload OmnipotentFool/ragingoa-backend . . --repo-type space --commit-message "Sync from GitHub"
