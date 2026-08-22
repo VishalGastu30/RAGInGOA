@@ -1,3 +1,12 @@
+---
+title: Ragingoa Backend
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # Voice-Enabled RAG System — MSMARCO-XI (HH Goa 2026, Task 2)
 
 A high-performance, voice-first Retrieval-Augmented Generation (RAG) system with hybrid multi-strategy retrieval, cross-encoder reranking, semantic caching, and strict guardrails.
