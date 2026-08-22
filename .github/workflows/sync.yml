@@ -15,6 +15,8 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          # Replace 'YOUR_HF_USERNAME' with your actual Hugging Face username if it's not VishalGastu30
-          git push --force https://OmnipotentFool:$HF_TOKEN@huggingface.co/spaces/OmnipotentFool/ragingoa-backend main
-
+          # Install huggingface_hub
+          pip install huggingface_hub
+          
+          # Upload the entire repository to the Space, bypassing Git LFS binary history errors
+          huggingface-cli upload OmnipotentFool/ragingoa-backend . --repo-type space --commit-message "Sync from GitHub"
