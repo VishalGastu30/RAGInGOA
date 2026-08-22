@@ -27,7 +27,7 @@ ENV/
 # Data & Indexes
 backend/data/raw/*
 !backend/data/raw/.gitkeep
-backend/data/index/*
+# backend/data/index/*
 !backend/data/index/.gitkeep
 *.db
 *.sqlite3
