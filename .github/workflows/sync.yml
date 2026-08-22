@@ -9,11 +9,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
+          fetch-depth: 0
           lfs: true
       - name: Sync to Hugging Face
-        uses: huggingface/hub-sync@v1
-        with:
-          # We'll ask the user to specify their exact Space name here later, 
-          # or we can leave a placeholder
-          repo: "VishalGastu30/ragingoa-backend" 
-          token: ${{ secrets.HF_TOKEN }}
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Replace 'YOUR_HF_USERNAME' with your actual Hugging Face username if it's not VishalGastu30
+          git push --force https://VishalGastu30:$HF_TOKEN@huggingface.co/spaces/VishalGastu30/ragingoa-backend main
+
