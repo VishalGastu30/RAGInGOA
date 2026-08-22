@@ -119,7 +119,7 @@ export default function HeroOrb({
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="orb-wrapper">
-        <AudioVisualizer isRecording={isRecording} stream={activeStream} theme={theme} width={220} height={220} />
+        <AudioVisualizer isRecording={isRecording} stream={activeStream} theme={theme} width={280} height={280} />
         
         <button
           type="button"

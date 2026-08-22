@@ -269,10 +269,6 @@ body {
   gap: 8px;
 }
 
-@media (max-width: 850px) {
-  .nav-status-pills { display: none; }
-}
-
 .pill-tech {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -321,15 +317,15 @@ body {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -432,8 +428,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 220px;
-  height: 220px;
+  width: 280px;
+  height: 280px;
   cursor: pointer;
 }
 
@@ -710,6 +706,7 @@ body {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -738,7 +735,7 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 16px 24px;
+  padding: 14px 20px calc(12px + env(safe-area-inset-bottom)) 20px;
   background: rgba(5, 5, 8, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -751,7 +748,7 @@ body {
 }
 
 .theme-sunrise .input-dock-fixed {
-  background: rgba(255, 245, 237, 0.85);
+  background: rgba(255, 245, 237, 0.88);
   border-color: rgba(234, 88, 12, 0.15);
   box-shadow: 0 -10px 30px rgba(234, 88, 12, 0.05);
 }
@@ -766,8 +763,8 @@ body {
 }
 
 .dock-mic-btn {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
@@ -803,13 +800,13 @@ body {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-primary);
-  padding: 12px 48px 12px 16px;
+  padding: 12px 46px 12px 16px;
   border-radius: var(--radius-lg);
   font-size: 14px;
   font-family: var(--font-body);
   outline: none;
   resize: none;
-  min-height: 46px;
+  min-height: 44px;
   max-height: 120px;
   line-height: 1.4;
   transition: var(--transition-fast);
@@ -828,9 +825,9 @@ body {
 
 .dock-send-btn {
   position: absolute;
-  right: 8px;
-  width: 32px;
-  height: 32px;
+  right: 6px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: none;
   background: var(--accent-pink);
@@ -926,10 +923,6 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
-}
-
-@media (max-width: 768px) {
-  .drawer-grid { grid-template-columns: 1fr; }
 }
 
 .telemetry-card {
@@ -1104,7 +1097,142 @@ body {
 }
 
 /* ============================================================
-   12. Accessibility & Reduced Motion
+   12. Responsive Mobile Breakpoints
+   ============================================================ */
+@media (max-width: 768px) {
+  .top-nav {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .nav-title {
+    font-size: 13px;
+  }
+
+  .nav-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+  }
+
+  .nav-status-pills {
+    display: none;
+  }
+
+  .strat-tab {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .main-content {
+    padding: 16px 12px 160px 12px;
+  }
+
+  .hero-idle-container {
+    gap: 20px;
+  }
+
+  .orb-wrapper {
+    width: 220px;
+    height: 220px;
+  }
+
+  .orb-core {
+    width: 110px;
+    height: 110px;
+  }
+
+  .hero-tagline {
+    font-size: 19px;
+  }
+
+  .hero-subtext {
+    font-size: 13px;
+    max-width: 100%;
+  }
+
+  .prompt-chip {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .chat-stream-container {
+    gap: 16px;
+  }
+
+  .chat-bubble-user {
+    max-width: 90%;
+    font-size: 14px;
+    padding: 12px 16px;
+  }
+
+  .chat-bubble-assistant {
+    padding: 16px;
+    font-size: 14px;
+  }
+
+  .knowledge-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .telemetry-drawer-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .top-nav {
+    padding: 0 10px;
+  }
+
+  .nav-brand {
+    gap: 6px;
+  }
+
+  .hh-logo-group {
+    padding: 2px 6px;
+  }
+
+  .hh-logo-img { height: 16px; }
+  .goa-hindi-img { height: 18px; }
+
+  .nav-title { display: none; }
+
+  .hero-tagline {
+    font-size: 17px;
+  }
+
+  .input-dock-fixed {
+    padding: 10px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
+  }
+
+  .dock-inner {
+    gap: 8px;
+  }
+
+  .dock-mic-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .dock-textarea {
+    font-size: 13px;
+    padding: 10px 42px 10px 12px;
+    min-height: 40px;
+  }
+}
+
+/* ============================================================
+   13. Accessibility & Reduced Motion
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
