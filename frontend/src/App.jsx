@@ -27,13 +27,24 @@ export default function App() {
   const [strictMode, setStrictMode] = useState(true);
   const [activeStrategy, setActiveStrategy] = useState('hybrid');
 
-  const [theme, setTheme] = useState('theme-cyberpunk');
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('rag_goa_theme') || 'theme-cyberpunk';
+  });
   const [isTransitioningTheme, setIsTransitioningTheme] = useState(false);
   const [themeClickCoords, setThemeClickCoords] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [telemetryOpen, setTelemetryOpen] = useState(false);
 
   const ignoreNextAudioRef = useRef(false);
+
+  // Sync theme class to document root and body
+  useEffect(() => {
+    document.documentElement.className = theme;
+    document.body.className = theme;
+    try {
+      localStorage.setItem('rag_goa_theme', theme);
+    } catch (e) {}
+  }, [theme]);
 
   useEffect(() => {
     try {
@@ -356,6 +367,7 @@ export default function App() {
               setIsRecording={setIsRecording}
               disabled={loading}
               onSelectPrompt={(text) => handleSendText(text)}
+              theme={theme}
             />
           ) : (
             <motion.div

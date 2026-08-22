@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 
-export default function AudioVisualizer({ isRecording, stream, width = 220, height = 220 }) {
+export default function AudioVisualizer({ isRecording, stream, theme, width = 220, height = 220 }) {
   const canvasRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
@@ -37,6 +37,8 @@ export default function AudioVisualizer({ isRecording, stream, width = 220, heig
       const bufferLength = analyserRef.current.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
+      const isLight = theme === 'theme-sunrise';
+
       const draw = () => {
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -44,7 +46,7 @@ export default function AudioVisualizer({ isRecording, stream, width = 220, heig
         const cHeight = canvas.height;
         const centerX = cWidth / 2;
         const centerY = cHeight / 2;
-        const innerRadius = 70; // Radius of central mic orb
+        const innerRadius = 70;
 
         ctx.clearRect(0, 0, cWidth, cHeight);
         analyserRef.current.getByteFrequencyData(dataArray);
@@ -54,7 +56,7 @@ export default function AudioVisualizer({ isRecording, stream, width = 220, heig
 
         for (let i = 0; i < numBars; i++) {
           const value = dataArray[i % bufferLength] || 0;
-          const barHeight = (value / 255) * 35; // Max 35px extension
+          const barHeight = (value / 255) * 35;
 
           const angle = i * angleStep - Math.PI / 2;
 
@@ -63,10 +65,16 @@ export default function AudioVisualizer({ isRecording, stream, width = 220, heig
           const x2 = centerX + Math.cos(angle) * (innerRadius + barHeight);
           const y2 = centerY + Math.sin(angle) * (innerRadius + barHeight);
 
-          // Dynamic Gradient per bar (Cyan base -> Pink tip)
           const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-          grad.addColorStop(0, 'rgba(0, 229, 255, 0.8)');
-          grad.addColorStop(1, 'rgba(255, 45, 120, 0.9)');
+          if (isLight) {
+            // Warm Sunrise Solar Coral -> Deep Rose
+            grad.addColorStop(0, 'rgba(255, 94, 54, 0.95)');
+            grad.addColorStop(1, 'rgba(225, 29, 72, 0.95)');
+          } else {
+            // Cyberpunk Cyan -> Neon Pink
+            grad.addColorStop(0, 'rgba(0, 229, 255, 0.85)');
+            grad.addColorStop(1, 'rgba(255, 45, 120, 0.95)');
+          }
 
           ctx.beginPath();
           ctx.moveTo(x1, y1);
@@ -88,7 +96,7 @@ export default function AudioVisualizer({ isRecording, stream, width = 220, heig
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [isRecording, stream]);
+  }, [isRecording, stream, theme]);
 
   return (
     <canvas

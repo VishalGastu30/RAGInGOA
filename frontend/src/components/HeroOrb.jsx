@@ -10,6 +10,7 @@ export default function HeroOrb({
   setIsRecording,
   disabled,
   onSelectPrompt,
+  theme,
 }) {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -118,7 +119,7 @@ export default function HeroOrb({
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="orb-wrapper">
-        <AudioVisualizer isRecording={isRecording} stream={activeStream} width={220} height={220} />
+        <AudioVisualizer isRecording={isRecording} stream={activeStream} theme={theme} width={220} height={220} />
         
         <button
           type="button"
