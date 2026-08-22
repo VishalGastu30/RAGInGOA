@@ -46,3 +46,6 @@ task 2_ hhg.md
 
 # Agent Skills
 ui-ux-pro-max-skill/
+
+# Scripts
+backend/scripts/migrate_to_neon.py
