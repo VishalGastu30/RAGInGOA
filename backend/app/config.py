@@ -10,6 +10,7 @@ load_dotenv(BASE_DIR / ".env", override=True)
 # API Keys
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+HF_TOKEN = os.getenv("HF_TOKEN", "")
 
 # Server Config
 BACKEND_PORT = int(os.getenv("BACKEND_PORT", 8000))

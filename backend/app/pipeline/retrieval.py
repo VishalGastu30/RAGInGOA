@@ -8,10 +8,10 @@ import numpy as np
 import faiss
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from sentence_transformers import SentenceTransformer
+from huggingface_hub import InferenceClient
 from rank_bm25 import BM25Okapi
 
-from app.config import VECTOR_INDEX_PATH, EMBEDDING_MODEL_NAME
+from app.config import VECTOR_INDEX_PATH, EMBEDDING_MODEL_NAME, HF_TOKEN
 
 HINDI_STOPWORDS = {
     'के', 'में', 'की', 'है', 'को', 'से', 'का', 'एक', 'और', 'पर', 'भी', 
@@ -23,7 +23,7 @@ class RetrievalEngine:
     """Loads FAISS + BM25 indexes at startup and serves queries."""
 
     def __init__(self):
-        self.model: Optional[SentenceTransformer] = None
+        self.client: Optional[InferenceClient] = None
         self.faiss_index = None
         self.bm25_index: Optional[BM25Okapi] = None
         self.chunks: List[Dict[str, Any]] = []
@@ -36,8 +36,8 @@ class RetrievalEngine:
         if self._loaded:
             return
 
-        print("[retrieval] Loading embedding model …")
-        self.model = SentenceTransformer(EMBEDDING_MODEL_NAME)
+        print("[retrieval] Initializing InferenceClient …")
+        self.client = InferenceClient(token=HF_TOKEN)
 
         print("[retrieval] Loading FAISS index …")
         faiss_path = str(VECTOR_INDEX_PATH / "faiss_index.bin")
@@ -57,8 +57,20 @@ class RetrievalEngine:
 
     # ------------------------------------------------------------------
     def embed_query(self, text: str) -> np.ndarray:
-        vec = self.model.encode([text], normalize_embeddings=True, convert_to_numpy=True)
-        return vec.astype("float32")
+        result = self.client.feature_extraction(
+            text=text,
+            model=EMBEDDING_MODEL_NAME
+        )
+        vec = np.array(result, dtype="float32")
+        # Ensure shape is (1, dim)
+        if len(vec.shape) == 1:
+            vec = np.expand_dims(vec, axis=0)
+        
+        # Normalize for Inner Product search
+        norm = np.linalg.norm(vec[0])
+        if norm > 0:
+            vec[0] = vec[0] / norm
+        return vec
 
     # ------------------------------------------------------------------
     def search(
