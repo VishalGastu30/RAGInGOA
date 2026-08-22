@@ -1031,6 +1031,10 @@ body {
   margin-bottom: 6px;
 }
 
+.mobile-close-drawer-btn {
+  display: none; /* Only shown on mobile */
+}
+
 /* ============================================================
    10. Telemetry & Guardrail Drawer
    ============================================================ */
@@ -1295,6 +1299,31 @@ body {
     display: flex;
   }
 
+  .mobile-persistent-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Ensure space between theme button and hamburger */
+  }
+
+  /* Theme toggle: aggressive styling to ensure visibility */
+  .theme-toggle-btn {
+    display: inline-flex !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: var(--radius-sm) !important;
+    background: rgba(255, 255, 255, 0.15) !important; /* Brighter fallback */
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5) !important;
+  }
+
+  .theme-sunrise .theme-toggle-btn {
+    background: #FFFFFF !important;
+    border-color: rgba(234, 88, 12, 0.4) !important;
+    color: #1E293B !important;
+    box-shadow: 0 2px 10px rgba(234, 88, 12, 0.2) !important;
+  }
+
   .main-content {
     padding: 16px 12px 140px 12px;
   }
@@ -1358,15 +1387,132 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .drawer-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
+  /* ---- Telemetry Drawer: Mobile-Friendly Overhaul ---- */
+  .telemetry-drawer-overlay {
+    align-items: flex-end;
   }
 
   .telemetry-drawer-content {
-    padding: 18px;
-    max-height: 92vh;
+    padding: 16px;
+    max-height: 90vh;
+    width: 100vw;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    overflow-x: hidden;
+  }
+
+  .drawer-header {
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .drawer-title {
+    font-size: 11px;
+    letter-spacing: 0;
+    word-break: break-word;
+  }
+
+  .drawer-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .telemetry-card {
+    padding: 12px;
+    overflow: hidden;
+    word-break: break-word;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .telemetry-card-title {
+    font-size: 10px;
+    word-break: break-all;
+  }
+
+  .timing-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 0;
+    font-size: 12px;
+  }
+
+  .timing-label {
+    font-size: 11px;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .timing-value {
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .log-header-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .log-entry {
+    padding: 10px;
+    font-size: 12px;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .log-query {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    max-width: 100% !important;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .log-time {
+    font-size: 10px;
+    opacity: 0.7;
+  }
+
+  .log-status-tag {
+    font-size: 9px;
+  }
+
+  .proportional-bar {
+    height: 6px;
+  }
+  
+  .mobile-close-drawer-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-top: 16px;
+    background: var(--bg-surface-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-family: var(--font-heading);
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+  }
+  
+  .theme-sunrise .mobile-close-drawer-btn {
+    background: #FFFFFF;
+    border-color: rgba(234, 88, 12, 0.3);
   }
 }
 

@@ -44,6 +44,14 @@ export default function TelemetryDrawer({ isOpen, onClose, timings, stats, logs 
             <LatencyDashboard timings={timings} stats={stats} />
             <GuardrailLog logs={logs} />
           </div>
+
+          <button
+            type="button"
+            className="mobile-close-drawer-btn d-md-none" /* Hidden on desktop via generic utility or media query */
+            onClick={onClose}
+          >
+            CLOSE TELEMETRY
+          </button>
         </motion.div>
       </div>
     </AnimatePresence>

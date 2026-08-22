@@ -46,74 +46,79 @@ export default function NavBar({
         </span>
       </div>
 
-      {/* Desktop Actions */}
-      <div className="nav-actions desktop-only-actions">
-        {/* Strategy Selector */}
-        <div className="strategy-segmented" title="Chunking & Retrieval Strategy">
-          {['hybrid', 'semantic', 'small'].map((strat) => (
-            <button
-              key={strat}
-              type="button"
-              className={`strat-tab ${activeStrategy === strat ? 'active' : ''}`}
-              onClick={() => setActiveStrategy(strat)}
-            >
-              {strat.toUpperCase()}
-            </button>
-          ))}
-        </div>
+      {/* Persistent Right Actions */}
+      <div className="nav-actions">
+        {/* Desktop-Only Actions */}
+        <div className="nav-actions desktop-only-actions">
+          {/* Strategy Selector */}
+          <div className="strategy-segmented" title="Chunking & Retrieval Strategy">
+            {['hybrid', 'semantic', 'small'].map((strat) => (
+              <button
+                key={strat}
+                type="button"
+                className={`strat-tab ${activeStrategy === strat ? 'active' : ''}`}
+                onClick={() => setActiveStrategy(strat)}
+              >
+                {strat.toUpperCase()}
+              </button>
+            ))}
+          </div>
 
-        {/* Guardrail Toggle */}
-        <button
-          type="button"
-          className={`icon-btn ${strictMode ? 'active' : ''}`}
-          onClick={() => setStrictMode(!strictMode)}
-          title={strictMode ? 'Cross-Lingual Guardrails: STRICT ON' : 'Cross-Lingual Guardrails: OFF'}
-        >
-          {strictMode ? <Shield size={18} /> : <ShieldAlert size={18} color="var(--accent-amber)" />}
-        </button>
-
-        {/* Telemetry Drawer Toggle */}
-        <button
-          type="button"
-          className={`icon-btn ${telemetryOpen ? 'active' : ''}`}
-          onClick={onToggleTelemetry}
-          title="Telemetry & Stage Latencies"
-        >
-          <Activity size={18} />
-        </button>
-
-        {/* Clear Chat Button (if messages exist) */}
-        {hasMessages && (
+          {/* Guardrail Toggle */}
           <button
             type="button"
-            className="icon-btn"
-            onClick={onClearHistory}
-            title="Clear Chat History"
+            className={`icon-btn ${strictMode ? 'active' : ''}`}
+            onClick={() => setStrictMode(!strictMode)}
+            title={strictMode ? 'Cross-Lingual Guardrails: STRICT ON' : 'Cross-Lingual Guardrails: OFF'}
           >
-            <Trash2 size={18} />
+            {strictMode ? <Shield size={18} /> : <ShieldAlert size={18} color="var(--accent-amber)" />}
           </button>
-        )}
 
-        {/* Theme Toggle */}
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={handleThemeClick}
-          title={theme === 'theme-cyberpunk' ? 'Switch to Light Sunrise' : 'Switch to Cyberpunk Dark'}
-        >
-          {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
+          {/* Telemetry Drawer Toggle */}
+          <button
+            type="button"
+            className={`icon-btn ${telemetryOpen ? 'active' : ''}`}
+            onClick={onToggleTelemetry}
+            title="Telemetry & Stage Latencies"
+          >
+            <Activity size={18} />
+          </button>
+
+          {/* Clear Chat Button (if messages exist) */}
+          {hasMessages && (
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={onClearHistory}
+              title="Clear Chat History"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
+        </div>
+
+        <div className="mobile-persistent-actions">
+          {/* Theme Toggle (Visible on Desktop & Mobile) */}
+          <button
+            type="button"
+            className="icon-btn theme-toggle-btn"
+            onClick={handleThemeClick}
+            title={theme === 'theme-cyberpunk' ? 'Switch to Light Sunrise' : 'Switch to Cyberpunk Dark'}
+          >
+            {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          {/* Mobile Hamburger Toggle */}
+          <button
+            type="button"
+            className="mobile-hamburger-btn"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
-
-      {/* Mobile Hamburger Toggle */}
-      <button
-        type="button"
-        className="mobile-hamburger-btn"
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        aria-label="Toggle Navigation Menu"
-      >
-        {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-      </button>
 
       {/* Mobile Dropdown Panel */}
       {mobileMenuOpen && (
@@ -192,24 +197,6 @@ export default function NavBar({
               </button>
             )}
 
-            <button
-              type="button"
-              className="mobile-action-row"
-              onClick={(e) => {
-                handleThemeClick(e);
-                setMobileMenuOpen(false);
-              }}
-            >
-              <div className="mobile-action-icon">
-                {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
-              </div>
-              <div className="mobile-action-text">
-                <span className="mobile-action-title">Theme Mode</span>
-                <span className="mobile-action-sub">
-                  {theme === 'theme-cyberpunk' ? 'Switch to Vibrant Sunrise' : 'Switch to Cyberpunk Dark'}
-                </span>
-              </div>
-            </button>
           </div>
 
           {/* Tech Pills Footer */}
