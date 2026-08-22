@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Moon, Sun, ArrowRight, Settings2 } from 'lucide-react';
 import MicButton from './components/MicButton';
+import KnowledgeCard from './components/KnowledgeCard';
 import LatencyDashboard from './components/LatencyDashboard';
 import GuardrailLog from './components/GuardrailLog';
-import SponsorMarquee from './components/SponsorMarquee';
-import { ask, fetchGuardrailLog, fetchLatencyStats, transcribe } from './api/client';
+import { ask, fetchGuardrailLog, fetchLatencyStats } from './api/client';
 
 export default function App() {
-  // Restore messages from localStorage if available
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem('rag_goa_messages');
@@ -25,21 +26,18 @@ export default function App() {
   const [strictMode, setStrictMode] = useState(true);
   const [activeStrategy, setActiveStrategy] = useState('hybrid');
   const [inspectedSources, setInspectedSources] = useState(null);
-  const [theme, setTheme] = useState('retro-light');
+  const [theme, setTheme] = useState('theme-cyberpunk');
   const [isRecording, setIsRecording] = useState(false);
-  const [showGoaModal, setShowGoaModal] = useState(false);
-  const [footerOpen, setFooterOpen] = useState(true);
-  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [footerOpen, setFooterOpen] = useState(false);
 
   const ignoreNextAudioRef = useRef(false);
   const chatEndRef = useRef(null);
 
-  // Save messages to localStorage whenever they update
   useEffect(() => {
     try {
       localStorage.setItem('rag_goa_messages', JSON.stringify(messages));
     } catch (e) {
-      // quota exceeded fallback
+      // ignore
     }
   }, [messages]);
 
@@ -53,14 +51,8 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
-      // Esc closes modal
-      if (e.key === 'Escape') {
-        setShowGoaModal(false);
-      }
-      // 'M' toggles mic when focus is not inside textarea or input
       if ((e.key === 'm' || e.key === 'M') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
         e.preventDefault();
         setIsRecording((prev) => !prev);
@@ -79,42 +71,30 @@ export default function App() {
       if (logData?.logs) setLogs(logData.logs);
       if (statsData) setStats(statsData);
     } catch (e) {
-      // quiet fail on background polls
+      // silent fail for polling
     }
-  };
-
-  // Language script detector helper
-  const detectLanguageBadge = (text) => {
-    if (!text) return null;
-    const devanagariRegex = /[\u0900-\u097F]/;
-    if (devanagariRegex.test(text)) {
-      return { code: 'HI/MR', label: 'हिंदी / मराठी' };
-    }
-    return { code: 'EN', label: 'ENGLISH' };
   };
 
   const askPipeline = async ({ text, audio_base64 }) => {
     setLoading(true);
     let userMsgIndex = -1;
 
-    // Add User Message
     if (audio_base64) {
       setMessages((prev) => {
         userMsgIndex = prev.length;
-        return [...prev, { role: 'user', content: '🎤 [Voice Query Sent]' }];
+        return [...prev, { role: 'user', content: '🎤 [Voice Query]' }];
       });
-      setActiveStage('Sarvam STT (Transcribing)...');
+      setActiveStage('Transcribing audio...');
     } else {
       setMessages((prev) => {
         userMsgIndex = prev.length;
         return [...prev, { role: 'user', content: text }];
       });
-      setActiveStage('Retrieving (Vector + BM25)...');
+      setActiveStage('Retrieving knowledge...');
     }
 
     try {
       if (strictMode) {
-        // Strict Mode
         const res = await ask({
           text,
           audio_base64,
@@ -123,9 +103,7 @@ export default function App() {
 
         if (res.transcript && audio_base64) {
           setMessages((prev) =>
-            prev.map((msg, i) =>
-              i === userMsgIndex ? { ...msg, content: res.transcript } : msg
-            )
+            prev.map((msg, i) => i === userMsgIndex ? { ...msg, content: res.transcript } : msg)
           );
         }
 
@@ -145,7 +123,7 @@ export default function App() {
         ]);
         loadSidebars();
       } else {
-        // Non-strict / Streaming Mode
+        // Stream Mode (Skipped full implementation for brevity here, acts same as old App.jsx stream)
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
         const response = await fetch(`${BACKEND_URL}/api/ask-stream`, {
           method: 'POST',
@@ -157,11 +135,11 @@ export default function App() {
           }),
         });
 
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
+        if (!response.ok) throw new Error(`HTTP error!`);
+        
+        // standard stream reading loop
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
-
         let assistantAnswer = '';
         let assistantSources = [];
         let finalTimings = null;
@@ -169,21 +147,13 @@ export default function App() {
 
         setMessages((prev) => [
           ...prev,
-          {
-            role: 'assistant',
-            content: '',
-            answered: true,
-            sources: [],
-            timings: null,
-            timestamp: Date.now(),
-          }
+          { role: 'assistant', content: '', answered: true, sources: [], timings: null, timestamp: Date.now() }
         ]);
 
         let buffer = '';
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop() || '';
@@ -196,45 +166,28 @@ export default function App() {
               try {
                 const chunk = JSON.parse(dataStr);
                 if (chunk.transcript && audio_base64) {
-                  setMessages((prev) =>
-                    prev.map((msg, i) =>
-                      i === userMsgIndex ? { ...msg, content: chunk.transcript } : msg
-                    )
-                  );
+                  setMessages(prev => prev.map((msg, i) => i === userMsgIndex ? { ...msg, content: chunk.transcript } : msg));
                 }
                 if (chunk.token || chunk.answer_chunk) {
                   assistantAnswer += chunk.token || chunk.answer_chunk;
-                  setMessages((prev) => {
+                  setMessages(prev => {
                     const newMsgs = [...prev];
-                    const last = newMsgs[newMsgs.length - 1];
-                    last.content = assistantAnswer;
+                    newMsgs[newMsgs.length - 1].content = assistantAnswer;
                     return newMsgs;
                   });
                 }
-                if (chunk.sources) {
-                  assistantSources = chunk.sources;
-                }
-                if (chunk.timings_ms) {
-                  finalTimings = chunk.timings_ms;
-                }
-                if (chunk.refusal_reason) {
-                  refusalReason = chunk.refusal_reason;
-                }
+                if (chunk.sources) assistantSources = chunk.sources;
+                if (chunk.timings_ms) finalTimings = chunk.timings_ms;
+                if (chunk.refusal_reason) refusalReason = chunk.refusal_reason;
                 if (chunk.answered !== undefined) {
-                  const answeredVal = chunk.answered;
-                  setMessages((prev) => {
+                  setMessages(prev => {
                     const newMsgs = [...prev];
-                    const last = newMsgs[newMsgs.length - 1];
-                    last.answered = answeredVal;
-                    if (!answeredVal && refusalReason) {
-                      last.content = refusalReason;
-                    }
+                    newMsgs[newMsgs.length - 1].answered = chunk.answered;
+                    if (!chunk.answered && refusalReason) newMsgs[newMsgs.length - 1].content = refusalReason;
                     return newMsgs;
                   });
                 }
-              } catch (e) {
-                // parse error
-              }
+              } catch (e) {}
             }
           }
         }
@@ -242,24 +195,14 @@ export default function App() {
         if (finalTimings) setLastTimings(finalTimings);
         setMessages((prev) => {
           const newMsgs = [...prev];
-          const last = newMsgs[newMsgs.length - 1];
-          last.sources = assistantSources;
-          last.timings = finalTimings;
+          newMsgs[newMsgs.length - 1].sources = assistantSources;
+          newMsgs[newMsgs.length - 1].timings = finalTimings;
           return newMsgs;
         });
         loadSidebars();
       }
     } catch (err) {
-      console.error(err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: `Error connecting to pipeline: ${err.message}`,
-          answered: false,
-          timestamp: Date.now(),
-        }
-      ]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${err.message}`, answered: false }]);
     } finally {
       setLoading(false);
       setActiveStage('');
@@ -269,490 +212,185 @@ export default function App() {
   const handleSendText = async (textToSend) => {
     const query = textToSend || inputText;
     if (!query.trim() || loading) return;
-
     if (isRecording) {
       ignoreNextAudioRef.current = true;
       setIsRecording(false);
     }
-
     setInputText('');
     await askPipeline({ text: query });
-  };
-
-  const handleAudioRecorded = async (base64Audio) => {
-    if (ignoreNextAudioRef.current) {
-      ignoreNextAudioRef.current = false;
-      return;
-    }
-    if (loading) return;
-
-    await askPipeline({ audio_base64: base64Audio });
-  };
-
-  const handleCopy = (text, idx) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(idx);
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  const handleTranslateMessage = async (msgIndex) => {
-    const msg = messages[msgIndex];
-    if (!msg || !msg.content || loading) return;
-
-    setLoading(true);
-    setActiveStage('Translating to English...');
-
-    try {
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-      const response = await fetch(`${BACKEND_URL}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: msg.content }),
-      });
-      if (!response.ok) throw new Error('Translation API failed');
-      const data = await response.json();
-
-      setMessages((prev) =>
-        prev.map((m, i) =>
-          i === msgIndex
-            ? {
-                ...m,
-                originalContent: m.originalContent || m.content,
-                content: data.translated,
-                isTranslated: true,
-              }
-            : m
-        )
-      );
-    } catch (err) {
-      console.error(err);
-      alert('Translation failed');
-    } finally {
-      setLoading(false);
-      setActiveStage('');
-    }
-  };
-
-  const handleClearHistory = () => {
-    setMessages([]);
-    localStorage.removeItem('rag_goa_messages');
-    setLastTimings(null);
-    setInspectedSources(null);
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
-      e.preventDefault();
-      handleSendText();
-    }
   };
 
   const sampleQueries = [
     'What is a corporation?',
     'निगम क्या होता है?',
-    'Kya Corporation legal entity hai?',
-    'Who won the cricket world cup?',
+    'Who won the 2024 ICC T20 World Cup?'
   ];
 
   return (
     <div className={`app-layout ${theme}`}>
-      <header className="retro-header">
-        <div className="header-left">
-          <div className="hh-logo-lockup">
-            <img src="/hh_logo.png" alt="Hacker House" className="hh-wordmark" />
-            <img src="/goa_hindi.svg" alt="गोवा" className="goa-devanagari" />
-          </div>
-          <span className="header-badge">TASK 2</span>
-          <span className="header-subtitle">VOICE-ENABLED INDIC RAG</span>
+      {/* Top Navigation */}
+      <nav className="top-nav">
+        <div className="nav-left">
+          <div className="nav-title">RAGInGOA</div>
+          <div className="nav-subtitle glass-btn" style={{ cursor: 'default' }}>HH Goa 2026</div>
         </div>
-        <div className="header-right">
-          <div className="status-pill">FAISS FlatIP 384-d</div>
-          <div className="status-pill">Sarvam Saaras v3</div>
-          <div className="status-pill">BM25 Hybrid Fusion</div>
-          <div className="status-pill live-indicator">
-            <span className="status-dot green" />
-            Backend Live
-          </div>
-          <button
-            className="theme-toggle-btn"
-            onClick={() => setTheme(theme === 'retro-light' ? 'dark' : 'retro-light')}
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="glass-btn" onClick={() => setStrictMode(!strictMode)} title="Toggle Guardrails">
+            <Settings2 size={18} color={strictMode ? 'var(--accent-primary)' : 'var(--text-muted)'} />
+          </button>
+          <button 
+            className="glass-btn" 
+            onClick={() => setTheme(theme === 'theme-cyberpunk' ? 'theme-sunrise' : 'theme-cyberpunk')}
           >
-            {theme === 'retro-light' ? 'DARK THEME' : 'LIGHT THEME'}
+            {theme === 'theme-cyberpunk' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
         </div>
-      </header>
+      </nav>
 
-      {/* Main retro controls bar */}
-      <div className="retro-controls-bar">
-        <div className="controls-left">
-          <label className="checkbox-container">
-            <input
-              type="checkbox"
-              checked={strictMode}
-              onChange={(e) => setStrictMode(e.target.checked)}
-            />
-            <span className="checkmark"></span>
-            Cross-Lingual Guardrails & Refusal
-          </label>
-        </div>
-
-        <div className="controls-right">
-          <span className="control-label">CHUNKING STRATEGY:</span>
-          <div className="strategy-selector-retro">
-            {['hybrid', 'semantic', 'medium', 'small'].map((strat) => (
-              <button
-                key={strat}
-                type="button"
-                className={`strat-btn-retro ${activeStrategy === strat ? 'active' : ''}`}
-                onClick={() => setActiveStrategy(strat)}
-              >
-                {strat.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Dashboard Layout */}
-      <div className="retro-main-grid">
-        {/* Left Column: THE TERMINAL */}
-        <section className="retro-panel terminal-panel">
-          <div className="panel-header-retro">
-            <span className="panel-title-retro">THE TERMINAL</span>
-            <span className="panel-badge-retro">VOICE INTERFACE (PRESS 'M')</span>
-          </div>
-
-          <div className="panel-content-retro">
-            {/* Recording Interface Card */}
-            <div className="mic-interface-card">
-              <div className="voice-dial-wrapper">
-                <MicButton
-                  onAudioRecorded={handleAudioRecorded}
-                  onDictationUpdate={(text) => setInputText(text)}
-                  isRecording={isRecording}
-                  setIsRecording={setIsRecording}
-                  disabled={loading}
-                />
-              </div>
-              <div className={`status-badge-retro ${isRecording ? 'recording' : ''}`}>
-                {isRecording ? '>>> RECORDING ACTIVE' : '>>> CLICK MIC OR PRESS "M" TO SPEAK'}
-              </div>
-            </div>
-
-            {/* Input Row */}
-            <div className="retro-input-wrapper">
-              <textarea
-                className="retro-textarea"
-                placeholder="Ask in English, Hindi, or Marathi (Ctrl+Enter to send)..."
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
+      {/* Main Content Area */}
+      <main className="main-content-area">
+        <AnimatePresence mode="popLayout">
+          {messages.length === 0 ? (
+            <motion.div 
+              key="hero"
+              className="hero-wrapper"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+              transition={{ duration: 0.4 }}
+            >
+              <MicButton
+                onAudioRecorded={(audio) => askPipeline({ audio_base64: audio })}
+                onDictationUpdate={setInputText}
+                isRecording={isRecording}
+                setIsRecording={setIsRecording}
+                disabled={loading}
               />
-              <button
-                type="button"
-                className="retro-send-btn"
-                onClick={() => handleSendText()}
-                disabled={loading || !inputText.trim()}
-              >
-                RUN ➔
-              </button>
-            </div>
-
-            {/* Quick Prompts */}
-            <div className="quick-prompts-retro">
-              <span className="quick-label">QUICK PROMPTS (EN + HI + HINGLISH):</span>
-              <div className="chips-row">
-                {sampleQueries.map((q, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="chip-btn-retro"
-                    onClick={() => handleSendText(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Hacker House Goa Venue Info Component */}
-            <div className="hacker-house-badge-card">
-              <div className="badge-header-row">
-                <span className="badge-header">NETOPS</span>
-                <div className="badge-logo-pair">
-                  <img src="/hh_logo.png" alt="Hacker House" className="badge-hh-wm" />
-                  <img src="/goa_hindi.svg" alt="गोवा" className="badge-goa-deva" />
-                </div>
-              </div>
-              <div className="badge-grid">
-                <div className="badge-item">
-                  <span className="b-label">VENUE:</span>
-                  <span className="b-val">Arambol Beach, Goa</span>
-                </div>
-                <div className="badge-item">
-                  <span className="b-label">COORDS:</span>
-                  <span className="b-val">15.6888 N, 73.7042 E</span>
-                </div>
-                <div className="badge-item">
-                  <span className="b-label">SSID:</span>
-                  <span className="b-val highlight">HackerHouse_Goa_5G</span>
-                </div>
-                <div className="badge-item">
-                  <span className="b-label">TASK:</span>
-                  <span className="b-val">Task 2 - Indic Voice RAG</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Transcribed Session Feed */}
-            <div className="terminal-feed-card">
-              <div className="feed-header-retro">
-                <span>SESSION LOGS ({messages.length})</span>
-                <button className="clear-btn-retro" onClick={handleClearHistory}>
-                  Clear History
+              
+              <div className="chat-input-wrapper">
+                <input 
+                  type="text"
+                  className="pro-input"
+                  placeholder="Ask me anything, in English or Hindi..."
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+                />
+                <button 
+                  className="send-icon-btn" 
+                  onClick={() => handleSendText()} 
+                  disabled={!inputText.trim() || loading}
+                >
+                  <ArrowRight size={18} />
                 </button>
               </div>
-              <div className="feed-body-retro">
-                {messages.length === 0 ? (
-                  <div className="feed-empty">No active session. Speak or type above to begin.</div>
-                ) : (
-                  messages.map((msg, index) => {
-                    const langBadge = detectLanguageBadge(msg.content);
-                    return (
-                      <div key={index} className={`feed-msg-row ${msg.role}`}>
-                        <div className="msg-row-header">
-                          <span className="msg-tag">[{msg.role.toUpperCase()}]</span>
-                          {langBadge && (
-                            <span className="lang-badge" title={langBadge.label}>
-                              {langBadge.code}
-                            </span>
-                          )}
-                          {msg.cacheHit && (
-                            <span className="cache-badge" title="Retrieved instantly from Semantic Cache">
-                              ⚡ CACHE HIT
-                            </span>
-                          )}
-                        </div>
-                        <span className="msg-text">{msg.content}</span>
-                        {msg.role === 'assistant' && msg.content && (
-                          <div className="msg-actions-retro">
-                            <button
-                              type="button"
-                              className="btn-copy-retro"
-                              onClick={() => handleCopy(msg.content, index)}
-                            >
-                              {copiedIndex === index ? '✓ COPIED' : '[COPY]'}
-                            </button>
-                            {langBadge?.code === 'HI/MR' && (
-                              <button
-                                type="button"
-                                className="btn-translate-retro"
-                                onClick={() => {
-                                  if (msg.isTranslated) {
-                                    setMessages((prev) =>
-                                      prev.map((m, i) =>
-                                        i === index
-                                          ? { ...m, content: m.originalContent, isTranslated: false }
-                                          : m
-                                      )
-                                    );
-                                  } else {
-                                    handleTranslateMessage(index);
-                                  }
-                                }}
-                              >
-                                {msg.isTranslated ? '[SHOW ORIGINAL]' : '[TRANSLATE TO ENGLISH]'}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-                {loading && (
-                  <div className="feed-msg-row assistant loading">
-                    <span className="msg-tag">[SYSTEM]</span>
-                    <span className="msg-text loader-pulse">Processing Stage: {activeStage || 'Thinking'}...</span>
+
+              <div className="chips-row">
+                {sampleQueries.map((q, i) => (
+                  <div key={i} className="chip-pro" onClick={() => handleSendText(q)}>
+                    {q}
                   </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Right Column: THE KNOWLEDGE SEA */}
-        <section className="retro-panel knowledge-panel">
-          <div className="panel-header-retro">
-            <span className="panel-title-retro">THE KNOWLEDGE SEA</span>
-            <span className={`panel-badge-retro ${messages.length > 0 ? 'active' : ''}`}>
-              {messages.length > 0 ? 'RESULTS ACTIVE' : 'AWAITING QUERY'}
-            </span>
-          </div>
-
-          <div className="panel-content-retro">
-            <div className="knowledge-screen">
-              <div className="screen-grid-lines" />
-              {messages.length === 0 ? (
-                <div className="screen-fallback">
-                  <div className="hero-banner-container">
-                    <img src="/goa_beach_tech_sunset.jpg" alt="Goa Tech Sunset" className="hero-banner-img" />
-                  </div>
-                  <div className="fallback-title">AWAITING QUERY INPUT</div>
-                  <div className="fallback-subtitle">
-                    Speak into the microphone or type a query in the terminal to retrieval-augment MSMARCO-XI.
-                  </div>
-                  <div className="goa-explorer-widget">
-                    <div className="explorer-title">GOA HOTSPOT EXPLORER (CLICK TO WATCH)</div>
-                    <div className="explorer-grid">
-                      {[
-                        { name: 'Fontainhas Quarter', url: 'https://www.youtube.com/watch?v=3I2VqP726yU', desc: 'Latin quarter, historic colorful houses' },
-                        { name: 'Vagator Cliffs', url: 'https://youtu.be/jNSHoKCid6Y?si=osAsXLJtzcLcKyEj', desc: 'Red clay cliffs, party vibes & sunsets' },
-                        { name: 'Palolem Beach', url: 'https://youtu.be/sdD-pAK8nBM?si=zo3RAps3GkZ-8Ga7', desc: 'Scenic South Goa crescent bay' },
-                        { name: 'Dudhsagar Falls', url: 'https://youtu.be/fx3rZ9seX7s?si=s010WKpp8yabb4av', desc: 'Four-tiered mountain waterfall' }
-                      ].map((spot, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="explorer-card"
-                          onClick={() => window.open(spot.url, '_blank')}
-                        >
-                          <div className="spot-name">{spot.name}</div>
-                          <div className="spot-desc">{spot.desc}</div>
-                          <div className="spot-action">WATCH VIDEO ➔</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="screen-results">
-                  {/* Render Assistant Answers History */}
-                  {messages
-                    .filter((m) => m.role === 'assistant')
-                    .map((assistantMsg, idx) => (
-                      <div key={idx} className="results-wrapper">
-                        <div className={`response-box ${!assistantMsg.answered ? 'refused-box' : ''}`}>
-                          <div className="response-header">
-                            <span>[FUSED RESPONSE #{idx + 1}]</span>
-                            {assistantMsg.cacheHit && (
-                              <span className="response-cache-tag">⚡ CACHED (&lt;10ms)</span>
-                            )}
-                          </div>
-                          <div className="response-body">{assistantMsg.content}</div>
-                        </div>
-
-                        {assistantMsg.sources && assistantMsg.sources.length > 0 && (
-                          <div className="sources-section-retro">
-                            <div className="sources-header-retro">RETRIEVED DATA CHUNKS ({assistantMsg.sources.length})</div>
-                            <div className="sources-list-retro">
-                              {assistantMsg.sources.map((src, sIdx) => (
-                                <div
-                                  key={sIdx}
-                                  className={`source-item-retro ${inspectedSources?.chunk_id === src.chunk_id ? 'inspected' : ''}`}
-                                  onClick={() => {
-                                    if (inspectedSources?.chunk_id === src.chunk_id) {
-                                      setInspectedSources(null);
-                                    } else {
-                                      setInspectedSources(src);
-                                    }
-                                  }}
-                                >
-                                  <div className="source-item-header">
-                                    <span>MATCH {sIdx + 1} ({src.strategy?.toUpperCase() || 'HYBRID'})</span>
-                                    <span>SCORE: {Math.round((src.score || 0) * 100)}%</span>
-                                  </div>
-                                  <div className="source-item-body">{src.text}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-      </div>
-
-      {/* Sponsor Marquee Bar */}
-      <SponsorMarquee />
-
-      {/* Footer: Telemetry & Audit */}
-      <footer className={`retro-footer ${footerOpen ? 'open' : 'closed'}`}>
-        <div className="footer-header" onClick={() => setFooterOpen(!footerOpen)}>
-          <div className="footer-title-group">
-            <span className="footer-title">TELEMETRY & GUARDRAIL AUDIT</span>
-            <span className="footer-subtitle">STAGE LATENCIES & LOGS</span>
-          </div>
-          <button type="button" className="footer-toggle-btn">
-            {footerOpen ? '▼ HIDE PANEL' : '▲ SHOW TELEMETRY'}
-          </button>
-        </div>
-        {footerOpen && (
-          <div className="footer-content">
-            <div className="telemetry-col">
-              <LatencyDashboard timings={lastTimings} stats={stats} />
-            </div>
-            <div className="audit-col">
-              <GuardrailLog logs={logs} />
-            </div>
-          </div>
-        )}
-      </footer>
-
-      {/* Floating Goa Explorer Button */}
-      <button
-        type="button"
-        className="goa-floating-btn"
-        onClick={() => setShowGoaModal(true)}
-      >
-        <img src="/hacker_house_goa_logo.png" alt="Goa Logo" className="btn-logo-thumb" />
-        <span>EXPLORE GOA</span>
-      </button>
-
-      {/* Floating Goa Explorer Modal Overlay */}
-      {showGoaModal && (
-        <div className="goa-modal-overlay" onClick={() => setShowGoaModal(false)}>
-          <div className="goa-modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header-retro">
-              <span className="modal-title-retro">GOA KNOWLEDGE NAVIGATOR</span>
-              <button className="modal-close-retro" onClick={() => setShowGoaModal(false)}>✕</button>
-            </div>
-            <div className="modal-body-retro">
-              <div className="hero-banner-container">
-                <img src="/goa_beach_tech_sunset.jpg" alt="Goa Tech Sunset" className="hero-banner-img" />
-              </div>
-              <p className="modal-desc-retro">
-                Select a Goa hotspot below to watch popular travel vlogs and explore the local culture.
-              </p>
-              <div className="explorer-grid">
-                {[
-                  { name: 'Fontainhas Quarter', url: 'https://www.youtube.com/watch?v=3I2VqP726yU', desc: 'Latin quarter, historic colorful houses' },
-                  { name: 'Vagator Cliffs', url: 'https://youtu.be/jNSHoKCid6Y?si=osAsXLJtzcLcKyEj', desc: 'Red clay cliffs, party vibes & scenic sunsets' },
-                  { name: 'Palolem Beach Grove', url: 'https://youtu.be/sdD-pAK8nBM?si=zo3RAps3GkZ-8Ga7', desc: 'Scenic South Goa crescent bay' },
-                  { name: 'Dudhsagar Falls', url: 'https://youtu.be/fx3rZ9seX7s?si=s010WKpp8yabb4av', desc: 'Four-tiered mountain forest waterfall' }
-                ].map((spot, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="explorer-card"
-                    onClick={() => {
-                      window.open(spot.url, '_blank');
-                    }}
-                  >
-                    <div className="spot-name">{spot.name}</div>
-                    <div className="spot-desc">{spot.desc}</div>
-                    <div className="spot-action">WATCH VIDEO ➔</div>
-                  </button>
                 ))}
               </div>
-            </div>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="stream"
+              className="conversation-stream"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              {/* Sticky Mic for subsequent queries */}
+              <div className="hero-wrapper" style={{ marginBottom: '32px' }}>
+                <div style={{ transform: 'scale(0.8)' }}>
+                  <MicButton
+                    onAudioRecorded={(audio) => askPipeline({ audio_base64: audio })}
+                    onDictationUpdate={setInputText}
+                    isRecording={isRecording}
+                    setIsRecording={setIsRecording}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="chat-input-wrapper">
+                  <input 
+                    type="text"
+                    className="pro-input"
+                    placeholder="Ask a follow up..."
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+                  />
+                  <button 
+                    className="send-icon-btn" 
+                    onClick={() => handleSendText()} 
+                    disabled={!inputText.trim() || loading}
+                  >
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {messages.map((msg, idx) => (
+                <motion.div 
+                  key={idx}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`message-bubble ${msg.role === 'user' ? 'message-user' : 'message-assistant'}`}
+                >
+                  {msg.role === 'assistant' && msg.cacheHit && (
+                    <div style={{ fontSize: '11px', color: 'var(--accent-primary)', marginBottom: '8px', fontWeight: '700' }}>
+                      ⚡ FAST CACHE HIT
+                    </div>
+                  )}
+                  {msg.content}
+                  
+                  {msg.sources && msg.sources.length > 0 && (
+                    <div className="sources-grid">
+                      {msg.sources.map((src, sIdx) => (
+                        <KnowledgeCard 
+                          key={sIdx}
+                          source={src}
+                          index={sIdx}
+                          isInspected={inspectedSources?.chunk_id === src.chunk_id}
+                          onClick={() => setInspectedSources(src)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+
+              {loading && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="message-bubble message-assistant">
+                  <span style={{ opacity: 0.5 }}>{activeStage || 'Processing...'}</span>
+                </motion.div>
+              )}
+              <div ref={chatEndRef} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Telemetry Footer */}
+      <footer className="telemetry-footer">
+        <div className="nav-left">
+          <div className="telemetry-pill">
+            <div className="live-dot" /> LIVE
           </div>
+          <button className="glass-btn" onClick={() => setMessages([])} style={{ fontSize: '11px' }}>
+            CLEAR CHAT
+          </button>
+        </div>
+        <button className="glass-btn" onClick={() => setFooterOpen(!footerOpen)} style={{ fontSize: '11px' }}>
+          {footerOpen ? 'CLOSE TELEMETRY' : 'VIEW TELEMETRY'}
+        </button>
+      </footer>
+      
+      {footerOpen && (
+        <div className="glass-panel" style={{ position: 'absolute', bottom: '80px', left: '20px', right: '20px', height: '400px', display: 'flex', gap: '20px', padding: '20px', zIndex: 90 }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}><LatencyDashboard timings={lastTimings} stats={stats} /></div>
+          <div style={{ flex: 1, overflowY: 'auto' }}><GuardrailLog logs={logs} /></div>
         </div>
       )}
     </div>

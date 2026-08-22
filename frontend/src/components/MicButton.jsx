@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import WaveformCanvas from './WaveformCanvas';
+import AudioVisualizer from './AudioVisualizer';
+import { Mic, Square } from 'lucide-react';
 
 export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecording, setIsRecording, disabled }) {
   const mediaRecorderRef = useRef(null);
@@ -8,7 +9,6 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
   const [activeStream, setActiveStream] = useState(null);
 
   useEffect(() => {
-    // Stop recording programmatically if parent sets isRecording to false
     if (!isRecording && mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       if (recognitionRef.current) {
@@ -39,19 +39,16 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
           const base64Audio = reader.result.split(',')[1];
           onAudioRecorded(base64Audio);
         };
-        // Stop all audio tracks
         stream.getTracks().forEach((track) => track.stop());
         setActiveStream(null);
       };
 
-      // Set up local real-time browser speech recognition (dictation)
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        // set to hi-IN to transcribe Hindi speech in Devanagari
-        recognition.lang = 'hi-IN';
+        recognition.lang = 'hi-IN'; // Default to Indic/Hindi for RAGInGOA
 
         recognition.onresult = (event) => {
           let transcript = '';
@@ -98,17 +95,20 @@ export default function MicButton({ onAudioRecorded, onDictationUpdate, isRecord
   };
 
   return (
-    <div className="mic-wrapper">
+    <div className="mic-core-wrapper">
+      {/* Background Visualizer */}
+      <AudioVisualizer isRecording={isRecording} stream={activeStream} />
+      
+      {/* Foreground Button */}
       <button
         type="button"
-        className={`mic-btn ${isRecording ? 'recording' : ''}`}
+        className={`mic-btn-pro ${isRecording ? 'recording' : ''}`}
         onClick={toggleRecording}
         disabled={disabled}
         title={isRecording ? 'Click to stop recording' : 'Click to record voice query'}
       >
-        {isRecording ? <span className="stop-icon-symbol" /> : <span className="mic-icon-symbol" />}
+        {isRecording ? <Square size={32} fill="white" /> : <Mic size={36} />}
       </button>
-      <WaveformCanvas isRecording={isRecording} stream={activeStream} />
     </div>
   );
 }
