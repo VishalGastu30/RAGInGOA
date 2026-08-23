@@ -272,6 +272,8 @@ export default function App() {
     }
 
     setInputText('');
+    // Reset scroll to top so navbar stays visible after mobile keyboard closes
+    window.scrollTo(0, 0);
     await askPipeline({ text: query });
   };
 

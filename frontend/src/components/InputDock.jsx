@@ -128,6 +128,10 @@ export default function InputDock({
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      // Blur to dismiss mobile virtual keyboard and restore viewport
+      if (textareaRef.current) {
+        textareaRef.current.blur();
+      }
       onSendText();
     }
   };
@@ -176,7 +180,10 @@ export default function InputDock({
           <button
             type="button"
             className="dock-send-btn"
-            onClick={() => onSendText()}
+            onClick={() => {
+              if (textareaRef.current) textareaRef.current.blur();
+              onSendText();
+            }}
             disabled={!inputText.trim() || loading}
             title="Send Query"
           >
